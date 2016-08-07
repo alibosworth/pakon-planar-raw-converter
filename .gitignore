@@ -1,0 +1,4 @@
+.DS_Store
+_gh_pages
+node_modules
+npm-debug.log
