@@ -1,7 +1,7 @@
 {
-  "name": "pakon-raw-convert",
+  "name": "pakon-planar-raw-converter",
   "version": "0.0.1",
-  "description": "A script to convert TLXClientDemo produced RAW files into usable files via ImageMagick's Convert and NegFix8",
+  "description": "A script to convert TLXClientDemo produced Planar RAW files into usable files via ImageMagick's Convert and NegFix8",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -9,13 +9,13 @@
   "author": "",
   "license": "ISC",
   "bin": {
-    "pakon-raw-convert": "./index.js",
-    "prc": "./index.js"
+    "pakon-planar-raw-converter": "./index.js",
+    "pprc": "./index.js"
   },
   "dependencies": {
     "child-process-promise": "^2.0.3",
     "commander": "^2.9.0",
     "glob-fs": "latest",
-    "imagemagick-native": "latest"
+    "command-exists": "latest"
   }
 }
