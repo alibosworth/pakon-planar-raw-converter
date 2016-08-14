@@ -97,6 +97,8 @@ GEM
       middleman-core (>= 3.2)
       net-sftp
       ptools
+    middleman-gh-pages (0.3.1)
+      rake (> 0.9.3)
     middleman-inliner (1.0.1)
     middleman-minify-html (3.4.1)
       htmlcompressor (~> 0.2.0)
@@ -141,6 +143,7 @@ GEM
     rack (1.6.4)
     rack-test (0.6.3)
       rack (>= 1.0)
+    rake (11.2.2)
     rb-fsevent (0.9.7)
     rb-inotify (0.9.7)
       ffi (>= 0.5.0)
@@ -186,6 +189,7 @@ DEPENDENCIES
   maruku
   middleman (~> 3.4)
   middleman-deploy
+  middleman-gh-pages
   middleman-inliner
   middleman-minify-html
   middleman-s3_sync (~> 3)
