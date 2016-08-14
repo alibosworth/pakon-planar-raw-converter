@@ -1,0 +1,60 @@
+@import "normalize"
+
+*
+  box-sizing: border-box
+
+body
+  padding: 5%
+
+figure
+  h4
+    margin-bottom: .5em
+  img
+    display: inline-block
+    max-width: 100%
+  img + figcaption
+    margin-top: .5em
+
+.container
+  margin: 0 auto
+
+.highlight-issue
+  max-width: 1200px
+
+  figure
+    margin: 1em 0
+
+.container.comparison
+  text-align: center
+
+ul.comparison-table
+  list-style: none
+  margin: 0
+  margin-top: 2em
+
+  padding: 0
+  text-align: center
+  li
+    figure
+      margin: 0
+
+      // display: inline-block
+
+
+  @media screen and (min-width: 1000px)
+    li
+      figure
+        display: inline-block
+        width: 400px
+      figure:first-child
+        margin-right: 1%
+        text-align: right
+      figure:last-child
+        margin-left: 1%
+        text-align: left
+
+//
+
+code
+  background: rgba(0,0,0,0.04)
+  padding: .02em
