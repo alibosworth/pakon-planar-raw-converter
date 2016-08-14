@@ -83,11 +83,11 @@ Here's a quick summary of scanning with TLXClientDemo:
 
 #### Short version: 
 
-Simply run `pprc` from the directory containg your raw images.
+Simply run `pprc` from the directory containing your raw images.
 
 #### Long version:
 
-You must run this program from your computers "terminal", that means that it is text-based rather than mouse-based, but it should be really easy even if you have never done that kind of thing before.  Once you've installed it, all you have to do is:
+You must run this program from your computer's "terminal", that means that it is text-based rather than mouse-based, but it should be really easy even if you have never done that kind of thing before.  Once you've installed it, all you have to do is:
 
 1) Open your computer's terminal by presing cmd-space and typing "terminal" and hitting enter (assuming OSX).
 
@@ -95,22 +95,3 @@ You must run this program from your computers "terminal", that means that it is 
 
 3) type `pprc` and the enter key.
 
-<!-- ----------------
-
-## Options
-
-By default when you run the command `pprc` in the directory containing your TLXClientDemo exported raw files the following things will happen:
-
-1) The planar .raw files will be converted to "raw" TIFF files and put in a "raw_tiff" sub-directory.
-
-3) The original raw files are placed in a "planar_raw" subdirectory.
-
-2) Negfix8 is run on these tiff files and these files are placed in the current directory.
-
-Here are some options you can run:
-
-* `—no-negfix` don't run negfix8.  This will leave you with TIFFs that look dark and orange but you can use other tools to process them them such as [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html),
-* `—negfix-use-whole-set-for-calculations` by default negfix8 is run upon each image individually, allowing it to do its calculations on an image-by-image basis which generally leads to the best output for most situations.  If all of your scans in the current directory were exposed in similar conditions you might want to balancing to be applied equally to every image.  An extreme example of this would be if you had taken 10 pictures of a person standing in front of a grey wall, wearing a different brightly coloured shirt in each picture.  When Negfix8 is processing each image individually, you are likely to end up with a slightly different color-cast upon the grey wall as it attempts to compensate for the bright color of the shirt.  With this option enabled the wall would end up with exactly the same color-cast.
-* `—delete-planar-files` Delete the planar raw files once processed.
-* `—delete-all-raw-files` Delete both the Planar raw files and the raw tiff files once processed. Can not be combined with the `—no-negfix` option.  This is not at all recommended, I 
- -->
