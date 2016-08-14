@@ -16,6 +16,7 @@
     "child-process-promise": "^2.0.3",
     "commander": "^2.9.0",
     "glob-fs": "latest",
-    "command-exists": "latest"
+    "command-exists": "latest",
+    "bluebird": "latest"
   }
 }
