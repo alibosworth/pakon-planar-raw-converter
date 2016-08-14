@@ -31,6 +31,7 @@ The gist is you need to install Node, ImageMagick, and Negfix8 on your system, a
 #### Short version:
 
 `brew install imagemagick negfix8`
+
 `npm install -g alibosworth/pakon-planar-raw-converter`
 
 #### Long version:
