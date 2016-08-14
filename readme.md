@@ -28,12 +28,12 @@ Yes, you can use Photoshop's Raw file handling (absolutely nothing to do with "A
 
 The gist is you need to install Node, ImageMagick, and Negfix8 on your system, and then install this script "globally".  Technically all of the above should be possible on any Operating System, but here's the easiest way to do it if you are on OSX.
 
-### Short version
+#### Short version:
 
 `brew install imagemagick negfix8`
 `npm install -g alibosworth/pakon-planar-raw-converter`
 
-### Long version
+#### Long version:
 
 1) Install ["Node"](https://nodejs.org/en/download/).  Node is a thing which runs Javascript outside of your browser. That's because even though this script and your scans and your Pakon have nothing to do with the WorldWideWeb, I've used Javascript to write this script.  Don't worry, nothing is being sent to the Internet.  
 2) Install ["Homebrew"](http://brew.sh/). Homebrew is a handy tool for installing programs on your computer quickly.  Installing it will let you install other things.  
@@ -45,7 +45,7 @@ The gist is you need to install Node, ImageMagick, and Negfix8 on your system, a
 
 ## Scanning 
 
-The quick summary of scanning with TLXClientDemo
+Here's a quick summary of scanning with TLXClientDemo:
 
 1) Run TLXClientDemo
 
@@ -80,11 +80,12 @@ The quick summary of scanning with TLXClientDemo
 
 ## Using this script
 
-### Short version: 
+#### Short version: 
 
 Simply run `pprc` from the directory containg your raw images.
 
-### Long version:
+#### Long version:
+
 You must run this program from your computers "terminal", that means that it is text-based rather than mouse-based, but it should be really easy even if you have never done that kind of thing before.  Once you've installed it, all you have to do is:
 
 1) Open your computer's terminal by presing cmd-space and typing "terminal" and hitting enter (assuming OSX).
