@@ -36,9 +36,13 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 #### Long version:
 
 1) Install ["Node"](https://nodejs.org/en/download/).  Node is a thing which runs Javascript outside of your browser. That's because even though this script and your scans and your Pakon have nothing to do with the WorldWideWeb, this program is written in javascript.  Don't worry, nothing is being sent to the Internet.  
+
 2) Install ["Homebrew"](http://brew.sh/). Homebrew is a thing for installing other things on your computer.
+
 3) Open your computer's terminal by pressing CMD-space and typing "terminal" and hitting enter (you might already have this open if you followed Homebrew's installation instructions).
+
 4) In your terminal type `brew install imagemagick negfix8`, this will install ImageMagick and Negfix8.  If you want, you can skip steps 2-4 and just install these dependencies manually.   
+
 5) Install PPRC globally via `npm install -g alibosworth/pakon-planar-raw-converter`
 
 ------------------
