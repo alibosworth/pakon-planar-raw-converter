@@ -95,7 +95,7 @@ You must run this program from your computers "terminal", that means that it is 
 
 3) type `pprc` and the enter key.
 
-----------------
+<!-- ----------------
 
 ## Options
 
@@ -113,3 +113,4 @@ Here are some options you can run:
 * `—negfix-use-whole-set-for-calculations` by default negfix8 is run upon each image individually, allowing it to do its calculations on an image-by-image basis which generally leads to the best output for most situations.  If all of your scans in the current directory were exposed in similar conditions you might want to balancing to be applied equally to every image.  An extreme example of this would be if you had taken 10 pictures of a person standing in front of a grey wall, wearing a different brightly coloured shirt in each picture.  When Negfix8 is processing each image individually, you are likely to end up with a slightly different color-cast upon the grey wall as it attempts to compensate for the bright color of the shirt.  With this option enabled the wall would end up with exactly the same color-cast.
 * `—delete-planar-files` Delete the planar raw files once processed.
 * `—delete-all-raw-files` Delete both the Planar raw files and the raw tiff files once processed. Can not be combined with the `—no-negfix` option.  This is not at all recommended, I 
+ -->
