@@ -24,6 +24,9 @@ configure :build do
   # Slim::Engine.set_options :pretty => false
   activate :minify_css
   activate :minify_javascript
+
+  set :http_prefix, '/pakon-planar-raw-converter'
+
   # activate :gzip, :exts => %w(.js .css .html .htm .json)
   # ignore /photographs.+.jpg/ ################## Don't copy photographs to build dir # NOTE: only do this when updating images
   # ignore /heap.+.jpg/ ################## Don't copy photographs to build dir # NOTE: only do this when updating images
