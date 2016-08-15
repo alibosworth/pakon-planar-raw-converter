@@ -28,20 +28,20 @@ Yes, you can use Photoshop's raw file handling to open/convert a planar raw file
 
 You need to have Node, ImageMagick, and Negfix8 on your system, and then install this script "globally" so you can run it from any directory.  Technically all of the above should be possible on any kind of computer, but here's the easiest way to do it if you are on OSX.
 
-#### Short version (if 'brew' and 'node' aren't random words to you):
+#### Short version (if you have [homebrew](http://brew.sh/) installed):
 
-* `brew install imagemagick negfix8`
+* `brew install imagemagick negfix8 node`
 * `npm install -g alibosworth/pakon-planar-raw-converter`
 
 #### Long version:
 
-1) Install ["Node"](https://nodejs.org/en/download/).  Node is a thing which runs Javascript outside of your browser. That's because even though this script and your scans and your Pakon have nothing to do with the WorldWideWeb, this program is written in javascript.  Don't worry, nothing is being sent to the Internet.  
+1) Install ["Homebrew"](http://brew.sh/). Homebrew helps install other things on your computer.
 
-2) Install ["Homebrew"](http://brew.sh/). Homebrew is a thing for installing other things on your computer.
+2) Open your computer's terminal by pressing CMD-space and typing "terminal" and hitting enter (you might already have this open if you followed Homebrew's installation instructions).
 
-3) Open your computer's terminal by pressing CMD-space and typing "terminal" and hitting enter (you might already have this open if you followed Homebrew's installation instructions).
+3) Install Node, which runs Javascript outside of your browser. This is needed because even though this script and your scans and your Pakon have nothing to do with the internet, this program is written in Javascript. The easiest way to install it is to type `brew install node` in your terminal.  You can also [download an installer](https://nodejs.org/en/) however you may run into [permission issues](https://docs.npmjs.com/getting-started/fixing-npm-permissions) when trying to globally install the script later.
 
-4) In your terminal type `brew install imagemagick negfix8`, this will install ImageMagick and Negfix8.  If you want, you can skip steps 2-4 and just install these dependencies manually.   
+4) Install ImageMagick and Negfix8 by typing `brew install imagemagick negfix8` in your terminal. You may also install these dependancies manually.
 
 5) Install PPRC globally via `npm install -g alibosworth/pakon-planar-raw-converter`
 
