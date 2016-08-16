@@ -31,7 +31,7 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 #### Short version (if you have [homebrew](http://brew.sh/) installed):
 
 * `brew install imagemagick negfix8 node`
-* `npm install -g alibosworth/pakon-planar-raw-converter`
+* `npm install -g github:alibosworth/pakon-planar-raw-converter`
 
 #### Long version:
 
@@ -43,7 +43,7 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 
 4) Install ImageMagick and Negfix8 by typing `brew install imagemagick negfix8` in your terminal. You may also install these dependancies manually.
 
-5) Install PPRC globally via `npm install -g alibosworth/pakon-planar-raw-converter`
+5) Install PPRC globally via `npm install -g github:alibosworth/pakon-planar-raw-converter`
 
 ------------------
 
