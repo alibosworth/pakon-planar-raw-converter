@@ -8,6 +8,24 @@ title: "The Problem with Pakon PSI Software raw output"
   p Despite the Pakon 135+ being able to scan at 16 bits of image data, the PSI software is only able to export files at 8-bits, even when exporting raw files. This sometimes causes visual quantization issues in highlight areas when raw files are processed.  TLXClientDemo's planar raw output is the full 16-bits and does not suffer from this issue.  TLXClientDemo's planar raw files can be easily batch converted with the <a href="https://github.com/alibosworth/pakon-planar-raw-converter">PPRC</a> tool.
   P Note: The images below are 100% crops presented as 8-bit JPEG files, please see links below images to full samples.
 
+
+  figure
+    h4 PSI Raw TIFF Output
+    img src="#{image_path("samples/8bit-highlight-issue/highlight_crop_2_8bit_raw.jpg")}"
+    figcaption
+      p 100% crop of scan produced by exporting an 8-bit Raw TIFF file from PSI and inverting with Negfix8.  Quantization issues can be seen in the sky due to the limited bit-depth of the raw file.
+      p <a href="#{image_path("samples/8bit-highlight-issue/full_examples/PSI_20140611_01_04.tif.zip")}">Link to full resolution processed TIFF file (10mb archive)</a>.
+      p <a href="#{image_path("samples/8bit-highlight-issue/raw_sources/PSI_20140611_01_04.tif.zip")}">Link to Raw TIFF file (13mb archive)</a>.
+
+  figure
+    h4 TLXClient Planar Raw Output
+    img src="#{image_path("samples/8bit-highlight-issue/highlight_crop_2_16bit_raw.jpg")}"
+    figcaption
+      p 100% crop of scan produced by exporting a 16-bit Planar Raw file from TLXClientDemo and converted with <a href="https://github.com/alibosworth/pakon-planar-raw-converter">PPRC</a>.
+      p <a href="#{image_path("samples/8bit-highlight-issue/full_examples/TLX_20140611_01_04.tif.zip")}">Link to full resolution processed TIFF file (26mb archive)</a>.
+      p <a href="#{image_path("samples/8bit-highlight-issue/raw_sources/TLX_20140611_01_04.raw.zip")}">Link to Raw TIFF file (30mb archive)</a>.
+
+
   figure
     h4 PSI Raw TIFF Output
     img src="#{image_path("samples/8bit-highlight-issue/highlight_crop_8bit_raw.jpg")}"
@@ -22,4 +40,4 @@ title: "The Problem with Pakon PSI Software raw output"
     figcaption
       p 100% crop of scan produced by exporting a 16-bit Planar Raw file from TLXClientDemo and converted with <a href="https://github.com/alibosworth/pakon-planar-raw-converter">PPRC</a>.
       p <a href="#{image_path("samples/8bit-highlight-issue/full_examples/TLX_20140611_01_27.tif.zip")}">Link to full resolution processed TIFF file (26mb archive)</a>.
-      p <a href="#{image_path("samples/8bit-highlight-issue/raw_sources/TLX_20160620_01_27.raw.zip")}">Link to Raw TIFF file (30mb archive)</a>.
+      p <a href="#{image_path("samples/8bit-highlight-issue/raw_sources/TLX_20140611_01_27.raw.zip")}">Link to Raw TIFF file (30mb archive)</a>.
