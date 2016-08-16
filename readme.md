@@ -4,7 +4,7 @@ This is a small script to automate the process of converting the 16-bit Planar R
 
 The result of this is "normal" looking files that contain all the data that the Pakon 135+ is able to save, or optionally just dark/orange negative "linear scan" TIFF files that you can then process via tools like [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).
 
-The benefit of using this workflow is that you get the full 16-bits worth of image data rather than only the 8-bit files exported by PSI.  [Here's an example](https://alibosworth.github.io/pakon-planar-raw-converter/8bit_raw_highlight_issue/) of why using 16-bit raw files is an improvement.
+The benefit of using this workflow is that you get the full 16-bits worth of image data rather than only the 8-bit files exported by PSI.  [Here are some comparisons](https://alibosworth.github.io/pakon-planar-raw-converter/comparison/) of standard PSI output vs TLXCD raw output. 
 
 ---------------------
 
@@ -12,13 +12,13 @@ The benefit of using this workflow is that you get the full 16-bits worth of ima
 
 ### The non-raw files created by PSI or TLXClientDemo are amazing, why would I want to use this?
 
-A lot of people do like these balanced images, and there are certainly some robust Kodak algorithms being used to get good images regardless of what kind of negative is being scanned, however I personally find these images overly processed and prefer a more neutral starting point with more data. My reference point is 10 years of scanning with a Minolta 5400 dedicated film scanner using [Vuescan](https://www.hamrick.com/), generally following the ["Advanced Workflow Suggestions"](https://www.hamrick.com/vuescan/html/vuesc16.htm).  My goal during scanning is to capture and save as much data as possible from which to work with. 
+A lot of people do like the default output images, and there are certainly some robust Kodak algorithms being used to produce passable images regardless of what kind of negative is being scanned, however I personally find these images overly processed and prefer a more neutral starting point with more data. My reference point is 10 years of scanning with a Minolta 5400 dedicated film scanner using [Vuescan](https://www.hamrick.com/), generally following the ["Advanced Workflow Suggestions"](https://www.hamrick.com/vuescan/html/vuesc16.htm).  My goal during scanning is always to capture and save as much data as possible from which to work with later.
 
-### The "Normal" PSI program already exports Raw files for me, why would I want to use this?
+### The "Normal" PSI program already exports Raw files for me, why would I want to use TLXClientDemo's planar raw output?
 
-While internally the Pakon 135 is dealing with 16-bits of image data, PSI can only export 8-bit files, even when exporting Raw TIFFs.  In my experience this limitation appears most often as artifacting/quantization in the highlights of the processed file - [here's an example of the issue](https://alibosworth.github.io/pakon-planar-raw-converter/8bit_raw_highlight_issue/).  When PSI is using its inversion/balancing algorithms it is working on the full 16-bits of data so these issues don't appear in the non-raw 8-bit exports, however as stated above I find the highlight clipping and generally heavy-handed processing a problem.
+While internally the Pakon 135+ is dealing with 16-bits of image data, PSI can only export 8-bit files, even when exporting Raw TIFFs.  In my experience this limitation appears most often as artifacting/quantization in the highlights of the processed file - [here's are some examples of the issue](https://alibosworth.github.io/pakon-planar-raw-converter/8bit_raw_highlight_issue/).  When PSI is using its inversion/balancing algorithms it is working on the full 16-bits of data so these issues don't appear in the non-raw 8-bit exports, however as stated above I find the highlight clipping and generally heavy-handed processing limiting.
 
-### I can just convert the planar raw files produced by TLXClientDemo with Photoshop, why would I want to use this?
+### I can just convert the planar raw files produced by TLXClientDemo with Photoshop, why would I want to use this script?
 
 Yes, you can use Photoshop's raw file handling to open/convert a planar raw file, but you'll have to specify the image details (dimensions, channel count, bit-depth, header offset) each time, and then save out to a TIFF.  This script scans a whole directory of images using the file sizes to automatically know what resolution you've scanned at, then uses the ImageMagick library to convert to a standard TIFF (and then if you want also inverts it into a "positive" image using Negfix8).
 
