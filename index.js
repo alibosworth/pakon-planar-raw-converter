@@ -6,6 +6,7 @@ var glob = require('glob-fs')({ gitignore: true });
 var promiseExec = require('child-process-promise').exec;
 var Promise = require("bluebird");
 var checkDependencies = require('./lib/check-dependencies');
+var program = require('commander');
 
 var OUTPUT_DIR = "out";
 
@@ -18,16 +19,31 @@ var BYTE_SIZE_TO_DIMENSIONS = { // A map of file size to the size value base to 
   "9000016" : "1500x1000+16"   // "Base 4" exported with header
 };
 
+program
+  .version('0.0.1')
+  .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
+  .option('--no-negfix', 'Skip running negfix8, leaving you with raw .tiff files for futher processing with another tool')
+  .parse(process.argv);
+
 checkForDependencies().then(function(){
+  if (!fs.existsSync(program.outputDir)){
+    fs.mkdirSync(program.outputDir);
+  }
+
   var rawFiles = scanDirectoryForFiles();
   var usableRawFilesWithSizeData = checkRawFileSizes(rawFiles);
-  convertRawFilesToTif(usableRawFilesWithSizeData).then(function(tifs){
+  convertRawFilesToTiff(usableRawFilesWithSizeData).then(function(tifs){
     process.stdout.write("\n");
-    console.log("Converted raw files to tifs, inverting and balancing with negfix8...");
-    adjustTifsWithNegfix8(tifs).then(function(files){
-      process.stdout.write("\n");
-      console.log(`Done. ${files.length} ${files.length === 1 ? "file" : "files"} exported to the '${OUTPUT_DIR}' subdirectory`);
-    });
+
+    if (program.negfix === false) {
+      console.log(`Done. ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as a raw TIFF.`);
+    } else {
+      console.log("Converted raw files to tifs, inverting and balancing with negfix8...");
+      adjustTifsWithNegfix8(tifs).then(function(files){
+        process.stdout.write("\n");
+        console.log(`Done. ${files.length} ${files.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as processed TIFF.`);
+      });
+    }
   });
 });
 
@@ -35,7 +51,7 @@ function scanDirectoryForFiles () {
   var rawFiles = glob.readdirSync('*.raw', {});
 
   if (!rawFiles.length) {
-    exitWithError("No raw files found in the current directory");
+    exitWithError("No .raw files found in the current directory \nPlease run this script from the same directory where you have saved your planar .raw files from TLXClientDemo");
   } else {
     console.log(`Found ${rawFiles.length} raw files in current directory...`);
     return rawFiles;
@@ -73,9 +89,10 @@ function checkRawFileSizes(rawFiles){
   return data;
 }
 
-function convertRawFilesToTif (data) {
+function convertRawFilesToTiff (data) {
   process.stdout.write("CONVERTING: ");
   var conversionPromises = [];
+
   for (var item in data) {
      var promise = convertRawToTif(item, data[item].size);
      conversionPromises.push(promise);
@@ -90,26 +107,29 @@ function convertRawFilesToTif (data) {
 
 function convertRawToTif (name, sizeParameter) {
   var baseName = path.basename(name, ".raw");
-  var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:${name} -gamma 2.2 tif:${baseName}.tif`;
+  var destinationFile = `${baseName}.tif`
+  var noNegfix = program.negfix === false;
+
+  if (noNegfix) {
+    destinationFile = path.join(program.outputDir, destinationFile);
+  }
+
+  var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" -gamma 2.2 tif:"${destinationFile}"`;
   return promiseExec(cmd).then(function(){
-    return `${baseName}.tif`;
+    return `${destinationFile}`;
   });
 }
 
 function adjustTifsWithNegfix8(tifs) {
-  var promises = [];
   process.stdout.write("ADJUSTING: ");
-
-  if (!fs.existsSync(OUTPUT_DIR)){
-      fs.mkdirSync(OUTPUT_DIR);
-  }
+  var promises = [];
   tifs.forEach(function(tif){
-    var cmd = `negfix8 -cs ${tif} ${OUTPUT_DIR}/${tif}`;
+    var cmd = `negfix8 -cs "${tif}" "${program.outputDir}/${tif}"`;
     var promise = promiseExec(cmd).then(function(){
       process.stdout.write(" ▢ ");
       return tif;
     }).catch(function(error){
-      console.log(`Error converting ${tif} to ${OUTPUT_DIR}/${tif}`);
+      console.log(`Error converting ${tif} to ${program.outputDir}/${tif}`);
     });
     promises.push(promise);
   });

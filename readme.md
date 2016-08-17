@@ -96,3 +96,17 @@ You must run this program from your computer's "terminal", that means that it is
 
 3) type `pprc` and the enter key.  After a few moments you should have an "out" directory containing the processed images.
 
+
+## Options
+
+By default when you run the command `pprc` in the directory containing your TLXClientDemo exported raw files the following things will happen:
+
+1) The planar .raw files will be converted to "raw" TIFF files left in place.
+
+2) Negfix8 is run on these tiff files and these files are placed in the "out" directory.
+
+Here are some options you can run:
+
+* `—no-negfix` Don't run negfix8.  This will leave you with TIFFs that look dark and orange but you can use other tools to process them them such as [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  If you use this the raw TIFF files will be placed in the output directory instead
+
+* `--output-directory [dir]`  Specify a different output subdirectory rather than "out"
