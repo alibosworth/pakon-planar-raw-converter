@@ -12,7 +12,7 @@
   "dependencies": {
     "child-process-promise": "^2.0.3",
     "commander": "^2.9.0",
-    "glob-fs": "latest",
+    "glob": "latest",
     "command-exists": "latest",
     "bluebird": "latest"
   }

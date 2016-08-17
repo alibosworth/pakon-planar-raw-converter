@@ -2,7 +2,7 @@
 var fs = require( 'fs' );
 var path = require( 'path' );
 var process = require( "process" );
-var glob = require('glob-fs')({ gitignore: true });
+var glob = require('glob');
 var promiseExec = require('child-process-promise').exec;
 var Promise = require("bluebird");
 var checkDependencies = require('./lib/check-dependencies');
@@ -48,7 +48,7 @@ checkForDependencies().then(function(){
 });
 
 function scanDirectoryForFiles () {
-  var rawFiles = glob.readdirSync('*.raw', {});
+  var rawFiles = glob.sync('*.raw', {});
 
   if (!rawFiles.length) {
     exitWithError("No .raw files found in the current directory \nPlease run this script from the same directory where you have saved your planar .raw files from TLXClientDemo");
@@ -115,6 +115,11 @@ function convertRawToTif (name, sizeParameter) {
   }
 
   var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" -gamma 2.2 tif:"${destinationFile}"`;
+
+  if (process.platform === "win32") {
+    cmd = "magick " + cmd;
+  }
+
   return promiseExec(cmd).then(function(){
     return `${destinationFile}`;
   });
@@ -139,11 +144,19 @@ function adjustTifsWithNegfix8(tifs) {
 function checkForDependencies() {
   var promises = [];
 
-  promises.push(checkDependencies("convert").then(function(success, error){
-    if (!success) {
-      exitWithError("'convert' from ImageMagick doesn't seem to exist, please install it");
-    }
-  }));
+  if (process.platform === "win32") {
+    promises.push(checkDependencies("magick").then(function(success, error){
+      if (!success) {
+        exitWithError("'magick' from ImageMagick doesn't seem to exist, please install it");
+      }
+    }));
+  } else {
+    promises.push(checkDependencies("convert").then(function(success, error){
+      if (!success) {
+        exitWithError("'convert' from ImageMagick doesn't seem to exist, please install it");
+      }
+    }));
+  }
 
   promises.push(checkDependencies("negfix8").then(function(success, error){
     if (!success) {
