@@ -115,6 +115,11 @@ function convertRawToTif (name, sizeParameter) {
   }
 
   var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" -gamma 2.2 tif:"${destinationFile}"`;
+
+  if (process.platform === "win32") {
+    cmd = "magick " + cmd;
+  }
+
   return promiseExec(cmd).then(function(){
     return `${destinationFile}`;
   });
