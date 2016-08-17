@@ -32,7 +32,7 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 
 #### Short version (if you have [homebrew](http://brew.sh/) installed):
 
-* `brew install imagemagick negfix8 node`
+* `brew install imagemagick negfix8 node npm`
 * `npm install -g github:alibosworth/pakon-planar-raw-converter`
 
 #### Long version:
@@ -41,7 +41,7 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 
 2) Open your computer's terminal by pressing CMD-space and typing "terminal" and hitting enter (you might already have this open if you followed Homebrew's installation instructions).
 
-3) Install Node, which runs Javascript outside of your browser. This is needed because even though this script and your scans and your Pakon have nothing to do with the internet, this program is written in Javascript. The easiest way to install it is to type `brew install node` in your terminal.  You can also [download an installer](https://nodejs.org/en/) however you may run into [permission issues](https://docs.npmjs.com/getting-started/fixing-npm-permissions) when trying to globally install the script later.
+3) Install Node, which runs Javascript outside of your browser. This is needed because even though this script and your scans and your Pakon have nothing to do with the internet, this program is written in Javascript. The easiest way to install it is to type `brew install node npm` in your terminal.  You can also [download an installer](https://nodejs.org/en/) however you may run into [permission issues](https://docs.npmjs.com/getting-started/fixing-npm-permissions) when trying to globally install the script later.
 
 4) Install ImageMagick and Negfix8 by typing `brew install imagemagick negfix8` in your terminal. You may also install these dependancies manually.
 
@@ -112,3 +112,9 @@ Here are some options you can run:
 * `—no-negfix` Don't run negfix8.  This will leave you with TIFFs that look dark and orange but you can use other tools to process them them such as [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  If you use this options the raw TIFF files will be placed in the output directory.
 
 * `--output-directory [dir]`  Specify a different output subdirectory rather than "out"
+
+----------
+
+## Questions?
+
+ali@alibosworth.com
