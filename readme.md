@@ -30,6 +30,8 @@ Yes, you can use Photoshop's raw file handling to open/convert a planar raw file
 
 You need to have Node, ImageMagick, and Negfix8 on your system, and then install this script "globally" so you can run it from any directory.  Technically all of the above should be possible on any kind of computer, but here's the easiest way to do it if you are on OSX.
 
+### OSX
+
 #### Short version (if you have [homebrew](http://brew.sh/) installed):
 
 * `brew install imagemagick negfix8 node npm`
@@ -46,6 +48,21 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 4) Install ImageMagick and Negfix8 by typing `brew install imagemagick negfix8` in your terminal. You may also install these dependancies manually.
 
 5) Install PPRC globally via `npm install -g github:alibosworth/pakon-planar-raw-converter`
+
+### Windows
+
+1) Install Node via [downloadable installer](https://nodejs.org/en/)
+
+2) Install Imagemagick via [downloadable installer](http://www.imagemagick.org/script/binary-releases.php#windows) (make sure to check off "install legacy utilities" as negfix8 needs this)
+
+3) Install Git via [downloadable installer](https://git-scm.com/download/win)
+
+4) Download the Windows version of the [Negfix8 script](https://sites.google.com/site/negfix/downloads), and place it in C:\Windows\System32 (or elsewhere if you know how to make it globally available by updating your PATH)
+
+5) Open the command prompt by clicking the start button and searching for "cmd" and running it
+
+6) run `npm install -g github:alibosworth/pakon-planar-raw-converter`
+
 
 ------------------
 
