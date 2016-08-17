@@ -2,7 +2,7 @@
 var fs = require( 'fs' );
 var path = require( 'path' );
 var process = require( "process" );
-var glob = require('glob-fs')({ gitignore: true });
+var glob = require('glob');
 var promiseExec = require('child-process-promise').exec;
 var Promise = require("bluebird");
 var checkDependencies = require('./lib/check-dependencies');
@@ -48,7 +48,7 @@ checkForDependencies().then(function(){
 });
 
 function scanDirectoryForFiles () {
-  var rawFiles = glob.readdirSync('*.raw', {});
+  var rawFiles = glob.sync('*.raw', {});
 
   if (!rawFiles.length) {
     exitWithError("No .raw files found in the current directory \nPlease run this script from the same directory where you have saved your planar .raw files from TLXClientDemo");
