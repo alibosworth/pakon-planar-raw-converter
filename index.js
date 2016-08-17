@@ -144,11 +144,19 @@ function adjustTifsWithNegfix8(tifs) {
 function checkForDependencies() {
   var promises = [];
 
-  promises.push(checkDependencies("convert").then(function(success, error){
-    if (!success) {
-      exitWithError("'convert' from ImageMagick doesn't seem to exist, please install it");
-    }
-  }));
+  if (process.platform === "win32") {
+    promises.push(checkDependencies("magick").then(function(success, error){
+      if (!success) {
+        exitWithError("'magick' from ImageMagick doesn't seem to exist, please install it");
+      }
+    }));
+  } else {
+    promises.push(checkDependencies("convert").then(function(success, error){
+      if (!success) {
+        exitWithError("'convert' from ImageMagick doesn't seem to exist, please install it");
+      }
+    }));
+  }
 
   promises.push(checkDependencies("negfix8").then(function(success, error){
     if (!success) {
