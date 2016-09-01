@@ -23,6 +23,7 @@ program
   .version('0.0.1')
   .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
   .option('--no-negfix', 'Skip running negfix8, leaving you with raw .tiff files for futher processing with another tool')
+  .option('--no-dependency-check', 'Avoid checking for dependencies')
   .parse(process.argv);
 
 checkForDependencies().then(function(){
@@ -142,6 +143,11 @@ function adjustTifsWithNegfix8(tifs) {
 }
 
 function checkForDependencies() {
+  if (program.dependencyCheck === false) {
+    console.log("Skipping Dependancy Check...")
+    return Promise.resolve()
+  }
+
   var promises = [];
 
   if (process.platform === "win32") {
