@@ -24,6 +24,7 @@ program
   .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
   .option('--no-negfix', 'Skip running negfix8, leaving you with raw .tiff files for futher processing with another tool')
   .option('--no-dependency-check', 'Avoid checking for dependencies')
+  .option('--dimensions [width]x[height]', 'Manually specify pixel dimensions of raw file (useful for xpan, etc) format like "3000x2000"')
   .parse(process.argv);
 
 checkForDependencies().then(function(){
@@ -66,11 +67,26 @@ function checkRawFileSizes(rawFiles){
   rawFiles.forEach(function(rawFile){
     var filePath = currentDir + "/" + rawFile;
     var sizeInBytes = fs.statSync(filePath).size;
-    var dimensionsForConvert = BYTE_SIZE_TO_DIMENSIONS[sizeInBytes.toString()];
+    var dimensionsForConvert;
+    if (program.dimensions && program.dimensions.split("x").length === 2) {
+      // Manually specified image dimensions, but lets confirm
+      var splitDimensions = program.dimensions.split("x"),
+          width = parseInt(splitDimensions[0], 10),
+          height = parseInt(splitDimensions[1], 10);
+
+      if (sizeInBytes / (width * height) === 6) {
+        dimensionsForConvert = `${width}x${height}`;
+      } else if ((sizeInBytes - 16) / (width * height) === 6) {
+        dimensionsForConvert = `${width}x${height}+16`;
+      }
+
+    } else {
+      dimensionsForConvert = BYTE_SIZE_TO_DIMENSIONS[sizeInBytes.toString()];
+    }
 
     if (!dimensionsForConvert) {
       badFiles.push(rawFile);
-      console.error(`${rawFile} is the wrong size - please export via TLXClientDemo in "Planar" mode at "Original height and width"`);
+      console.error(`${rawFile} is the wrong size - please export via TLXClientDemo in "Planar" mode at "Original height and width" (or specify dimensions via --dimensions option)`);
     } else {
       data[rawFile] = {
         size: dimensionsForConvert
