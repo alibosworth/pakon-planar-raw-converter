@@ -128,7 +128,9 @@ Here are some options you can run:
 
 * `--no-negfix` Don't run negfix8.  This will leave you with TIFFs that look dark and orange but you can use other tools to process them them such as [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  If you use this options the raw TIFF files will be placed in the output directory.
 
-* `--output-directory [dir]`  Specify a different output subdirectory rather than "out"
+* `--output-directory [dir]`  Specify a different output subdirectory rather than "out".
+
+* `--dimensions [width]x[height]` Specify a non-standard image size if you adjust the framing within TLXClient. 
 
 ----------
 
