@@ -4,6 +4,7 @@ var path = require( 'path' );
 var process = require( "process" );
 var glob = require('glob');
 var promiseExec = require('child-process-promise').exec;
+var execSync = require('child_process').execSync;
 var Promise = require("bluebird");
 var checkDependencies = require('./lib/check-dependencies');
 var program = require('commander');
@@ -41,10 +42,9 @@ checkForDependencies().then(function(){
       console.log(`Done. ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as a raw TIFF.`);
     } else {
       console.log("Converted raw files to tifs, inverting and balancing with negfix8...");
-      adjustTifsWithNegfix8(tifs).then(function(files){
-        process.stdout.write("\n");
-        console.log(`Done. ${files.length} ${files.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as processed TIFF.`);
-      });
+      var convertedFiles = adjustTifsWithNegfix8(tifs);
+      process.stdout.write("\n");
+      console.log(`Done. ${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as processed TIFF.`);
     }
   });
 });
@@ -144,18 +144,18 @@ function convertRawToTif (name, sizeParameter) {
 
 function adjustTifsWithNegfix8(tifs) {
   process.stdout.write("ADJUSTING: ");
-  var promises = [];
+  var result = []
   tifs.forEach(function(tif){
+    process.stdout.write(" ▢ ");
     var cmd = `negfix8 -cs "${tif}" "${program.outputDir}/${tif}"`;
-    var promise = promiseExec(cmd).then(function(){
-      process.stdout.write(" ▢ ");
-      return tif;
-    }).catch(function(error){
+    var executedCommand = execSync(cmd);
+    if (executedCommand.stderr) {
       console.log(`Error converting ${tif} to ${program.outputDir}/${tif}`);
-    });
-    promises.push(promise);
+    } else {
+      result.push(tif);
+    }
   });
-  return Promise.all(promises);
+  return result;
 }
 
 function checkForDependencies() {
