@@ -1,6 +1,6 @@
 {
   "name": "pakon-planar-raw-converter",
-  "version": "0.0.1",
+  "version": "0.0.5",
   "description": "A script to convert TLXClientDemo produced Planar RAW files into usable files via ImageMagick's Convert and NegFix8",
   "main": "index.js",
   "author": "Ali Bosworth <ali@alibosworth.com> (http://alibosworth.com/)",
