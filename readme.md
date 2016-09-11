@@ -63,6 +63,11 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 
 6) run `npm install -g pakon-planar-raw-converter`
 
+------------------
+
+## Updating
+
+You can check your currently installed version with "pprc --version" and if needed update with `npm update -g pakon-planar-raw-converter`
 
 ------------------
 

@@ -1,3 +1,7 @@
+# 0.0.6
+
+Publish to npmjs.org, update readme.
+
 # 0.0.5
 
 Stop calling Negfix8 in parallel because it can break things
