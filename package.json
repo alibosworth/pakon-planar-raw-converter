@@ -10,6 +10,7 @@
     "pakon-planar-raw-converter": "./index.js",
     "pprc": "./index.js"
   },
+  "preferGlobal": true,
   "dependencies": {
     "child-process-promise": "^2.0.3",
     "commander": "^2.9.0",
