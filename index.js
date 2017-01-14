@@ -21,11 +21,12 @@ var BYTE_SIZE_TO_DIMENSIONS = { // A map of file size to the size value base to 
 };
 
 program
-  .version('0.0.6')
+  .version('0.0.7')
   .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
   .option('--no-negfix', 'Skip running negfix8, leaving you with raw .tiff files for futher processing with another tool')
   .option('--no-dependency-check', 'Avoid checking for dependencies')
   .option('--dimensions [width]x[height]', 'Manually specify pixel dimensions of raw file (useful for xpan, etc) format like "3000x2000"')
+  .option('--e6', 'Skip running negfix8, apply ImageMagick\'s -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo')
   .parse(process.argv);
 
 checkForDependencies().then(function(){
@@ -38,8 +39,8 @@ checkForDependencies().then(function(){
   convertRawFilesToTiff(usableRawFilesWithSizeData).then(function(tifs){
     process.stdout.write("\n");
 
-    if (program.negfix === false) {
-      console.log(`Done. ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as a raw TIFF.`);
+    if (program.negfix === false || program.e6) {
+      console.log(`Done. ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as a ${program.e6 ? "aut-leveled" : "raw"} TIFF.`);
     } else {
       console.log("Converted raw files to tifs, inverting and balancing with negfix8...");
       var convertedFiles = adjustTifsWithNegfix8(tifs);
@@ -124,14 +125,20 @@ function convertRawFilesToTiff (data) {
 
 function convertRawToTif (name, sizeParameter) {
   var baseName = path.basename(name, ".raw");
-  var destinationFile = `${baseName}.tif`
-  var noNegfix = program.negfix === false;
+  var destinationFile = `${baseName}.tif`;
+  var noNegfix = program.negfix === false || program.e6;
+  var optionalAutoLevel = "-auto-level";
+  var extra = "";
 
   if (noNegfix) {
     destinationFile = path.join(program.outputDir, destinationFile);
   }
 
-  var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" -gamma 2.2 tif:"${destinationFile}"`;
+  if (program.e6) {
+    extra = extra + " " + optionalAutoLevel;
+  }
+
+  var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" -gamma 2.2 ${extra} tif:"${destinationFile}"`;
 
   if (process.platform === "win32") {
     cmd = "magick " + cmd;
