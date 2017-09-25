@@ -116,6 +116,7 @@ function convertRawFilesToTiff (data) {
      promise.then(function() {
        process.stdout.write(" ▢ ");
      }).catch(function(error) {
+       console.log(error);
        exitWithError("Error converting a file from a raw to a tiff", item);
      });
   }
@@ -131,7 +132,7 @@ function convertRawToTif (name, sizeParameter) {
     destinationFile = path.join(program.outputDir, destinationFile);
   }
 
-  var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" -gamma 2.2 tif:"${destinationFile}"`;
+  var cmd = `convert  -size ${sizeParameter} -depth 16 -interlace plane -profile "KODAK_sRGB.icm" rgb:"${name}" -set colorspace RGB    -gamma 2.2 -colorspace sRGB -profile "adobeRGB1998.icc"  tif:"${destinationFile}" `;
 
   if (process.platform === "win32") {
     cmd = "magick " + cmd;
