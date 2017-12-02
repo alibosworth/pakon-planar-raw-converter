@@ -21,7 +21,7 @@ var BYTE_SIZE_TO_DIMENSIONS = { // A map of file size to the size value base to 
 };
 
 program
-  .version('0.0.7')
+  .version('0.0.8')
   .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
   .option('--no-negfix', 'Skip running negfix8, leaving you with raw .tiff files for futher processing with another tool')
   .option('--no-dependency-check', 'Avoid checking for dependencies')
@@ -138,7 +138,7 @@ function convertRawToTif (name, sizeParameter) {
     extra = extra + " " + optionalAutoLevel;
   }
 
-  var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" -gamma 2.2 ${extra} tif:"${destinationFile}"`;
+  var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" -gamma 2.2 ${extra} -interlace none tif:"${destinationFile}"`;
 
   if (process.platform === "win32") {
     cmd = "magick " + cmd;
