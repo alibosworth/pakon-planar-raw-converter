@@ -1,3 +1,11 @@
+# 0.0.8
+
+Switch to saving initial TIFF with interleaved pixel order rather than rather per-channel
+
+# 0.0.7
+
+Support E6 workflow by not inverting
+
 # 0.0.6
 
 Publish to npmjs.org, update readme.
