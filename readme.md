@@ -51,6 +51,8 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 
 ### Windows
 
+*Note: Please do not try to run PPRC on Windows XP.  Everything will be easier and faster if you install this on a more modern operating system. There is no need to run PPRC from the computer you scanned on.*
+
 1) Install Node via [downloadable installer](https://nodejs.org/en/)
 
 2) Install Imagemagick via [downloadable installer](http://www.imagemagick.org/script/binary-releases.php#windows) (make sure to check off "install legacy utilities" as negfix8 needs this)
@@ -95,7 +97,7 @@ Here's a quick summary of scanning with TLXClientDemo:
 
 * "All Pictures (except hidden)"
 * "Original Height and Width"
-* "Other Options": uncheck everything except "Use Scratch Removal" if you enabled that earlier
+* "Other Options": **uncheck everything** except "Use Scratch Removal" if you enabled that earlier
 * "Type of Save Operation" : "To Client Memory"
 * "Planar" (this is important!) either with or without "Add File Header"
 * Click "OK"
@@ -140,6 +142,8 @@ Here are some options you can run:
 * `--output-directory [dir]`  Specify a different output subdirectory rather than "out".
 
 * `--e6` Skip running negfix8, apply ImageMagick's -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
+
+* `--no-dependency-check` Skip the dependency check.  Currently necessary to run the script on Windows XP.
 
 ----------
 
