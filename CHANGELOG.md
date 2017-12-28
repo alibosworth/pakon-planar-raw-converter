@@ -1,3 +1,7 @@
+# 0.0.10
+
+Add `--bw` and `--bw-rgb` options which skip negfix8 and instead invert and auto-level via Imagemagick.  `--bw` saves in a grey-scale colorspace while `--bw-rgb` leaves it in a RGB one.
+
 # 0.0.8
 
 Switch to saving initial TIFF with interleaved pixel order rather than rather per-channel
