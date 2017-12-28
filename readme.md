@@ -147,6 +147,8 @@ Here are some options you can run:
 
 * `--bw` Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save as grey-scale colorspace.
 
+* `--bw-rgb` Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save in RGB colorspace.
+
 * `--no-dependency-check` Skip the dependency check.  Currently necessary to run the script on Windows XP.
 
 ----------
