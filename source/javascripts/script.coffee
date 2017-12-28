@@ -10,3 +10,4 @@ $(document).ready ->
       closeSpeed: 0
     })
   # return
+  $("a[href^='http://'], a[href^='https://']").attr("target","_blank");
