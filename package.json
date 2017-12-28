@@ -1,8 +1,27 @@
 {
   "name": "pakon-planar-raw-converter",
-  "version": "0.0.8",
+  "version": "0.0.10",
   "description": "A script to convert Pakon F-135+ Planar RAW scans from TLXClientDemo into usable files via ImageMagick's Convert and NegFix8",
-  "keywords": ["kodak", "pakon", "f-135", "f-135+", "TLXClientDemo", "film", "negative", "scan", "scanning", "16-bit", "raw", "planar", "linear", "imagemagick", "negfix8", "photography", "35mm", "images"],
+  "keywords": [
+    "kodak",
+    "pakon",
+    "f-135",
+    "f-135+",
+    "TLXClientDemo",
+    "film",
+    "negative",
+    "scan",
+    "scanning",
+    "16-bit",
+    "raw",
+    "planar",
+    "linear",
+    "imagemagick",
+    "negfix8",
+    "photography",
+    "35mm",
+    "images"
+  ],
   "main": "index.js",
   "author": "Ali Bosworth <ali@alibosworth.com> (http://alibosworth.com/)",
   "license": "GPL-3.0",
@@ -12,10 +31,10 @@
   },
   "preferGlobal": true,
   "dependencies": {
-    "child-process-promise": "^2.0.3",
-    "commander": "^2.9.0",
-    "glob": "latest",
-    "command-exists": "latest",
-    "bluebird": "latest"
+    "bluebird": "^3.5.1",
+    "child-process-promise": "^2.2.1",
+    "command-exists": "^1.2.2",
+    "commander": "^2.12.2",
+    "glob": "^7.1.2"
   }
 }

@@ -2,11 +2,13 @@
 
 This is a small script to automate the process of converting the 16-bit Planar Raw files produced by TLXClientDemo into useful images.  Behind the scenes [ImageMagick](http://www.imagemagick.org/) is used to convert the planar file to a 16-bit TIFF and [Negfix8](https://sites.google.com/site/negfix/) is optionally used to invert/balance the negative scan.  
 
-The result of this is "normal" looking files that contain all the data that the Pakon 135+ is able to save, or optionally just dark/orange negative "linear scan" TIFF files that you can then process via tools like [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).
+The result of this is "normal" looking files that contain all the data that the Pakon 135+ is able to save, or optionally just dark/orange negative "linear scan" TIFF files that you can then process via tools like [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  Additionally the "--e6", "--bw", or "--bw-rgb" options may be used to perform additional steps via ImageMagick on the TIFF file instead of Negfix8.  You may need to use the [TLX_ScanEnable](https://github.com/sgharvey/pakon-tlx-addons) AutoIt script to enable B&W and Positive scanning modes that make these options useful.
 
 The benefit of using this workflow is that you get the full 16-bits worth of image data rather than only the 8-bit files exported by PSI.  [Here are some comparisons](https://alibosworth.github.io/pakon-planar-raw-converter/comparison/) of standard PSI output vs TLXCD raw output. 
 
 Technically, PSI itself can also export raw files, but they suffer from being only 8-bit which leads to occasional image quality issues [such as these](https://alibosworth.github.io/pakon-planar-raw-converter/8bit_raw_highlight_issue/).
+
+When scanning via TLX you can scan in any resolution ("base"), with or without the header option.  You must avoid rotating the images before saving, and none of the checkboxes in the "other options" section of the save dialog should be checked except for "use scratch removal" if you have scanned with IR.
 
 ---------------------
 
@@ -43,9 +45,9 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 
 2) Open your computer's terminal by pressing CMD-space and typing "terminal" and hitting enter (you might already have this open if you followed Homebrew's installation instructions).
 
-3) Install Node, which runs Javascript outside of your browser. This is needed because even though this script and your scans and your Pakon have nothing to do with the internet, this program is written in Javascript. The easiest way to install it is to type `brew install node npm` in your terminal.  You can also [download an installer](https://nodejs.org/en/) however you may run into [permission issues](https://docs.npmjs.com/getting-started/fixing-npm-permissions) when trying to globally install the script later.
+3) Install Node, which runs Javascript outside of your browser. This is needed because even though this script and your scans and your Pakon have nothing to do with the internet, this script is written in Javascript. The easiest way to install it is to type `brew install node npm` in your terminal.  You can also [download an installer](https://nodejs.org/en/) however you may run into [permission issues](https://docs.npmjs.com/getting-started/fixing-npm-permissions) when trying to globally install the script later.
 
-4) Install ImageMagick and Negfix8 by typing `brew install imagemagick negfix8` in your terminal. You may also install these dependancies manually.
+4) Install ImageMagick and Negfix8 by typing `brew install imagemagick negfix8` in your terminal. You may also install these dependencies manually.
 
 5) Install PPRC globally via `npm install -g pakon-planar-raw-converter`
 
@@ -69,7 +71,7 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 
 ## Updating
 
-You can check your currently installed version with "pprc --version" and if needed update with `npm update -g pakon-planar-raw-converter`
+You can check your currently installed version with "pprc --version" and  update with `npm update -g pakon-planar-raw-converter`
 
 ------------------
 
@@ -142,6 +144,8 @@ Here are some options you can run:
 * `--output-directory [dir]`  Specify a different output subdirectory rather than "out".
 
 * `--e6` Skip running negfix8, apply ImageMagick's -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
+
+* `--bw` Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save as grey-scale colorspace.
 
 * `--no-dependency-check` Skip the dependency check.  Currently necessary to run the script on Windows XP.
 

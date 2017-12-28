@@ -21,12 +21,14 @@ var BYTE_SIZE_TO_DIMENSIONS = { // A map of file size to the size value base to 
 };
 
 program
-  .version('0.0.8')
+  .version('0.0.10')
   .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
-  .option('--no-negfix', 'Skip running negfix8, leaving you with raw .tiff files for futher processing with another tool')
+  .option('--no-negfix', 'Skip running negfix8, leaving you with raw .tiff files for further processing with another tool')
   .option('--no-dependency-check', 'Avoid checking for dependencies')
   .option('--dimensions [width]x[height]', 'Manually specify pixel dimensions of raw file (useful for xpan, etc) format like "3000x2000"')
   .option('--e6', 'Skip running negfix8, apply ImageMagick\'s -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo')
+  .option('--bw', 'Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save in grey-scale colorspace')
+  .option('--bw-rgb', 'Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save in RGB colorspace')
   .parse(process.argv);
 
 checkForDependencies().then(function(){
@@ -39,8 +41,18 @@ checkForDependencies().then(function(){
   convertRawFilesToTiff(usableRawFilesWithSizeData).then(function(tifs){
     process.stdout.write("\n");
 
-    if (program.negfix === false || program.e6) {
-      console.log(`Done. ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as a ${program.e6 ? "aut-leveled" : "raw"} TIFF.`);
+    if (program.negfix === false || program.e6 || program.bw || program.bwRgb) {
+      var verb;
+      if (program.e6) {
+        varb = "auto-leveled";
+      } else if (program.bw) {
+        verb = "inverted and auto-leveled greyscale";
+      } else if (program.bwRgb) {
+        verb = "inverted and auto-leveled RGB";
+      } else {
+        verb = "raw";
+      }
+      console.log(`Done. ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as a ${verb} TIFF.`);
     } else {
       console.log("Converted raw files to tifs, inverting and balancing with negfix8...");
       var convertedFiles = adjustTifsWithNegfix8(tifs);
@@ -126,8 +138,7 @@ function convertRawFilesToTiff (data) {
 function convertRawToTif (name, sizeParameter) {
   var baseName = path.basename(name, ".raw");
   var destinationFile = `${baseName}.tif`;
-  var noNegfix = program.negfix === false || program.e6;
-  var optionalAutoLevel = "-auto-level";
+  var noNegfix = program.negfix === false || program.e6 || program.bw || program.bwRgb;
   var extra = "";
 
   if (noNegfix) {
@@ -135,7 +146,11 @@ function convertRawToTif (name, sizeParameter) {
   }
 
   if (program.e6) {
-    extra = extra + " " + optionalAutoLevel;
+    extra = extra + " -auto-level";
+  } else if (program.bw) {
+    extra = extra + " -negate -auto-level -colorspace Gray";
+  } else if (program.bwRgb) {
+    extra = extra + " -negate -auto-level";
   }
 
   var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" -gamma 2.2 ${extra} -interlace none tif:"${destinationFile}"`;
