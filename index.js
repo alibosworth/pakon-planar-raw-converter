@@ -21,7 +21,7 @@ var BYTE_SIZE_TO_DIMENSIONS = { // A map of file size to the size value base to 
 };
 
 program
-  .version('0.0.10')
+  .version('0.0.11')
   .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
   .option('--no-negfix', 'Skip running negfix8, leaving you with raw .tiff files for further processing with another tool')
   .option('--no-dependency-check', 'Avoid checking for dependencies')
@@ -29,6 +29,7 @@ program
   .option('--e6', 'Skip running negfix8, apply ImageMagick\'s -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo')
   .option('--bw', 'Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save in grey-scale colorspace')
   .option('--bw-rgb', 'Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save in RGB colorspace')
+  .option('--skip-auto-level', 'Skip auto-level step for E6 or BW options above')
   .parse(process.argv);
 
 checkForDependencies().then(function(){
@@ -43,12 +44,20 @@ checkForDependencies().then(function(){
 
     if (program.negfix === false || program.e6 || program.bw || program.bwRgb) {
       var verb;
-      if (program.e6) {
+      if (program.e6 && program.skipAutoLevel !== true) {
         varb = "auto-leveled";
       } else if (program.bw) {
-        verb = "inverted and auto-leveled greyscale";
+        if (program.skipAutoLevel !== true) {
+          verb = "inverted and auto-leveled greyscale";
+        } else {
+          verb = "inverted greyscale";
+        }
       } else if (program.bwRgb) {
-        verb = "inverted and auto-leveled RGB";
+        if (program.skipAutoLevel !== true) {
+          verb = "inverted and auto-leveled RGB";
+        } else {
+          verb = "inverted RGB";
+        }
       } else {
         verb = "raw";
       }
@@ -145,12 +154,18 @@ function convertRawToTif (name, sizeParameter) {
     destinationFile = path.join(program.outputDir, destinationFile);
   }
 
-  if (program.e6) {
-    extra = extra + " -auto-level";
-  } else if (program.bw) {
-    extra = extra + " -negate -auto-level -colorspace Gray";
-  } else if (program.bwRgb) {
-    extra = extra + " -negate -auto-level";
+  if (program.e6 || program.bw || program.bwRgb) {
+    if (program.bw || program.bwRgb) {
+      extra = extra + " -negate ";
+    }
+
+    if (program.skipAutoLevel !== true) {
+      extra = extra + " -auto-level ";
+    }
+
+    if (program.bw) {
+      extra = extra + " -colorspace Gray ";
+    }
   }
 
   var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" -gamma 2.2 ${extra} -interlace none tif:"${destinationFile}"`;
