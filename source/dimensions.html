@@ -1,0 +1,207 @@
+<html>
+
+<style>
+  body {
+    font-family: monospace;
+  }
+  .shape {
+    opacity: 0;
+    background: grey;
+    height: 40px;
+  }
+  .shape.visible {
+    opacity: 1
+  }
+
+  input.result {
+    width: 5em;
+  }
+
+  td:first-child {
+    padding-right: 2em;
+  }
+
+  td:not(:first-child) {
+    width: 10em;
+  }
+  tr:not(:first-child):not(.valid) {
+    opacity: .5
+  }
+</style>
+
+
+<body>
+<title>Calculate Pakon 135 dimensions based on file size</title>
+
+<form id="form">
+  <label>enter .raw file size in bytes:</label>
+  <input id="size-input" placeholder="36000000" value="" required pattern="[0-9,]*"/>
+  <input id="submit-button" type="submit" value="calculate" />
+</form>
+
+
+<table>
+
+<tr>
+  <td></td>
+  <td>
+    <strong>Width</strong>
+  </td>
+  <td>
+    <strong>Height</strong>
+  </td>
+  <td>
+    <strong>Shape</strong>
+  </td>
+</tr>
+<tr class="base-16" data-height="2000">
+  <td >
+    <strong>Base 16</strong>
+  </td>
+  <td>
+    <input type="text" readonly value="1234" class="result base-16"  data-height="2000"/>
+  </td>
+  <td>
+    2000
+  </td>
+  <td>
+    <div class="shape base-16" data-height="2000"></div>
+  </td>
+</tr>
+<tr class="base-16 w-header base-16-w-header" data-height="2000">
+  <td>
+    <strong>Base 16 w/ header</strong>
+  </td> 
+  <td>
+    <input type="text" readonly value="1234" class="result w-header base-16-w-header" data-height="2000" />
+  </td>
+  <td>
+    2000
+  </td>
+  <td>
+    <div class="shape base-16 w-header" data-height="2000"></div>
+  </td>
+</tr>
+<tr class="base-8" data-height="1500">
+  <td>
+    <strong>Base 8</strong>
+  </td>
+  <td>
+    <input type="text" readonly value="1234" class="result base-8" data-height="1500" />
+  </td>
+  <td>
+    1500
+  </td>
+  <td> 
+    <div class="shape base-8" data-height="1500"></div>
+  </td>
+</tr>
+<tr class="base-8 w-header base-8-w-header" data-height="1500">
+  <td>
+    <strong>Base 8 w/ header</strong>
+  </td> 
+  <td>
+    <input type="text" readonly value="1234" class="result w-header base-8-w-header" data-height="1500" />
+  </td>
+  <td>
+    1500
+  </td>
+  <td> 
+    <div class="shape base-8 w-header" data-height="1500"></div>
+  </td>
+</tr>
+<tr class="base-4" data-height="1000">
+  <td>
+    <strong>Base 4</strong>
+  </td>
+  <td>
+    <input type="text" readonly value="1234" class="result base-4" data-height="1000" />
+  </td>
+  <td>
+    1000
+  </td>
+  <td>
+    <div class="shape base-4" data-height="1000"></div>
+  </td>
+</tr>
+<tr class="base-4 w-header base-4-w-header" data-height="1000">
+  <td>
+    <strong>Base 4 w/ header</strong>
+  </td> 
+  <td>
+    <input type="text" readonly value="1234" class="result w-header base-4-w-header" data-height="1000" />
+  </td>
+  <td>
+    1000
+  </td>
+  <td>
+    <div class="shape base-4 w-header" data-height="1000"></div>
+  </td>
+</tr>
+</table>
+</body>
+
+<script>
+  var input = document.getElementById("size-input"),
+      button = document.getElementById("submit-button"),
+      form = document.getElementById("form"),
+      heights = [2000, 1500, 1000],
+      bytesPerPixel = 6,
+      headerSize = 16,
+      shapeHeight = 40;
+
+  var processSizeForHeight = function (size, height, withHeader) {
+    var extraSelector = "";
+    if (withHeader) {
+      extraSelector = ".w-header";
+    }
+
+    var resultInput = document.querySelector(".result" + extraSelector + "[data-height='" + height + "']");
+    var shape = document.querySelector(".shape" + extraSelector + "[data-height='" + height + "']");
+    var row = document.querySelector("tr" + extraSelector + "[data-height='" + height + "']");
+    var width = (withHeader ? (size - 16) : size) / height / bytesPerPixel;
+    var ratio = width / height;
+
+    shape.style.height = shapeHeight;
+    shape.style.width = ratio * shapeHeight ;
+
+    if (Number.isInteger(width)) {
+      resultInput.value = width;
+      shape.classList.add("visible");
+       row.classList.add("valid")
+    } else  {
+      resultInput.value = "~";
+      shape.classList.remove("visible");
+       row.classList.remove("valid");
+    }
+  }
+
+  var processSize = function (size) {
+    size = parseFloat(size.replace(/,/g, '')); 
+
+    var i = 0;
+    do {
+      var height = heights[i]
+      processSizeForHeight(size, height, false);
+      processSizeForHeight(size, height, true);
+      i += 1;
+    } while (i < heights.length);
+  };
+
+  form.addEventListener("submit", function(event) {
+    event.preventDefault();
+    var size = input.value;
+    processSize(size);
+  });
+
+  if (window.location.hash) {
+    var hash = window.location.hash;
+
+    if (hash.length > 5 && hash.indexOf("#") !== -1) {
+      var size = hash.replace("#", "");
+      input.value = size;
+      processSize(size);
+    }
+  }
+</script>
+</html>
