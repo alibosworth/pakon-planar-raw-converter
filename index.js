@@ -21,7 +21,7 @@ var BYTE_SIZE_TO_DIMENSIONS = { // A map of file size to the size value base to 
 };
 
 program
-  .version('0.0.10')
+  .version('0.0.11')
   .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
   .option('--no-negfix', 'Skip running negfix8, leaving you with raw .tiff files for further processing with another tool')
   .option('--no-dependency-check', 'Avoid checking for dependencies')
