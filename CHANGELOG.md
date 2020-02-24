@@ -1,4 +1,4 @@
-# 0.0.11
+# 0.0.12
 
 Correct documentation of `--output-dir` option which was previously incorrectly documented as `--output-directory`
 
