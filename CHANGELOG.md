@@ -1,3 +1,7 @@
+# 0.0.11
+
+Correct documentation of `--output-dir` option which was previously incorrectly documented as `--output-directory`
+
 # 0.0.10
 
 Add `--bw` and `--bw-rgb` options which skip negfix8 and instead invert and auto-level via Imagemagick.  `--bw` saves in a grey-scale colorspace while `--bw-rgb` leaves it in a RGB one.
