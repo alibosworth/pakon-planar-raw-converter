@@ -77,7 +77,7 @@ markdown:
 
   1) Install Node via [downloadable installer](https://nodejs.org/en/)
 
-  2) Install Imagemagick via [downloadable installer](http://www.imagemagick.org/script/binary-releases.php#windows) (make sure to check off "install legacy utilities" as negfix8 needs this)
+  2) Install Imagemagick via [downloadable installer](http://www.imagemagick.org/script/binary-releases.php#windows) (make sure to select "install legacy utilities" as negfix8 needs this)
 
   3) Install Git via [downloadable installer](https://git-scm.com/download/win)
 
@@ -157,11 +157,9 @@ markdown:
 
   * `--no-negfix` Don't run negfix8.  This will leave you with TIFFs that look dark and orange but you can use other tools to process them them such as [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  If you use this options the raw TIFF files will be placed in the output directory.
 
-  * `--output-directory [dir]`  Specify a different output subdirectory rather than "out".
+  * `--output-dir [dir]`  Specify a different output subdirectory rather than "out".
 
   * `--dimensions [width]x[height]` Specify a non-standard image size if you adjust the framing within TLXClient.
-  *
-  * `--output-directory [dir]`  Specify a different output subdirectory rather than "out".
 
   * `--e6` Skip running negfix8, apply ImageMagick's -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
 

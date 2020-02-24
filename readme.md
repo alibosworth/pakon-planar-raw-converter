@@ -1,0 +1,2 @@
+`rake build`
+`rake publish`
