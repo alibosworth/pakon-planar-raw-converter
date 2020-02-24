@@ -1,10 +1,10 @@
 # Pakon Planar Raw Converter (PPRC)
 
-This is a small script to automate the process of converting the 16-bit Planar Raw files produced by TLXClientDemo into useful images.  Behind the scenes [ImageMagick](http://www.imagemagick.org/) is used to convert the planar file to a 16-bit TIFF and [Negfix8](https://sites.google.com/site/negfix/) is optionally used to invert/balance the negative scan.  
+This is a small script to automate the process of converting the 16-bit Planar Raw files produced by TLXClientDemo into useful images.  Behind the scenes [ImageMagick](http://www.imagemagick.org/) is used to convert the planar file to a 16-bit TIFF and [Negfix8](https://sites.google.com/site/negfix/) is optionally used to invert/balance the negative scan.
 
 The result of this is "normal" looking files that contain all the data that the Pakon 135+ is able to save, or optionally just dark/orange negative "linear scan" TIFF files that you can then process via tools like [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  Additionally the "--e6", "--bw", or "--bw-rgb" options may be used to perform additional steps via ImageMagick on the TIFF file instead of Negfix8.  You may need to use the [TLX_ScanEnable](https://github.com/sgharvey/pakon-tlx-addons) AutoIt script to enable B&W and Positive scanning modes that make these options useful.
 
-The benefit of using this workflow is that you get the full 16-bits worth of image data rather than only the 8-bit files exported by PSI.  [Here are some comparisons](https://alibosworth.github.io/pakon-planar-raw-converter/comparison/) of standard PSI output vs TLXCD raw output. 
+The benefit of using this workflow is that you get the full 16-bits worth of image data rather than only the 8-bit files exported by PSI.  [Here are some comparisons](https://alibosworth.github.io/pakon-planar-raw-converter/comparison/) of standard PSI output vs TLXCD raw output.
 
 Technically, PSI itself can also export raw files, but they suffer from being only 8-bit which leads to occasional image quality issues [such as these](https://alibosworth.github.io/pakon-planar-raw-converter/8bit_raw_highlight_issue/).
 
@@ -75,7 +75,7 @@ You can check your currently installed version with "pprc --version" and  update
 
 ------------------
 
-## Scanning 
+## Scanning
 
 Here's a quick summary of scanning with TLXClientDemo:
 
@@ -110,7 +110,7 @@ Here's a quick summary of scanning with TLXClientDemo:
 
 ## Using this script
 
-#### Short version: 
+#### Short version:
 
 Simply run `pprc` from the directory containing your raw images.
 
@@ -120,7 +120,7 @@ You must run this program from your computer's "terminal", that means that it is
 
 1) Open your computer's terminal by pressing CMD-space and typing "terminal" and hitting enter (assuming OSX).
 
-2) Travel to the directory where your TLXClientDemo created raw files are, the easiest way to do this is to type `cd `  in the terminal (that is "cd" for Change Directory, followed by a space), and then drag the folder that contains your images into the terminal window from Finder.  When you do this it knows to insert the location of the dropped directory, so it might look like `cd /Users/alibosworth/Photos/scans/roll5`.  If it looks like that press the enter key, and you will now be "in" the directory containing your images. 
+2) Travel to the directory where your TLXClientDemo created raw files are, the easiest way to do this is to type `cd `  in the terminal (that is "cd" for Change Directory, followed by a space), and then drag the folder that contains your images into the terminal window from Finder.  When you do this it knows to insert the location of the dropped directory, so it might look like `cd /Users/alibosworth/Photos/scans/roll5`.  If it looks like that press the enter key, and you will now be "in" the directory containing your images.
 
 3) type `pprc` and the enter key.  After a few moments you should have an "out" directory containing the processed images.
 
@@ -137,11 +137,9 @@ Here are some options you can run:
 
 * `--no-negfix` Don't run negfix8.  This will leave you with TIFFs that look dark and orange but you can use other tools to process them them such as [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  If you use this options the raw TIFF files will be placed in the output directory.
 
-* `--output-directory [dir]`  Specify a different output subdirectory rather than "out".
+* `--output-dir [dir]`  Specify a different output subdirectory rather than "out".
 
-* `--dimensions [width]x[height]` Specify a non-standard image size if you adjust the framing within TLXClient. 
-* 
-* `--output-directory [dir]`  Specify a different output subdirectory rather than "out".
+* `--dimensions [width]x[height]` Specify a non-standard image size if you adjust the framing within TLXClient.
 
 * `--e6` Skip running negfix8, apply ImageMagick's -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
 
