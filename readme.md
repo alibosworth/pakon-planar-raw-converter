@@ -57,7 +57,7 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 
 1) Install Node via [downloadable installer](https://nodejs.org/en/)
 
-2) Install Imagemagick via [downloadable installer](http://www.imagemagick.org/script/binary-releases.php#windows) (make sure to check off "install legacy utilities" as negfix8 needs this)
+2) Install Imagemagick via [downloadable installer](http://www.imagemagick.org/script/binary-releases.php#windows) (make sure to select "install legacy utilities" as negfix8 needs this)
 
 3) Install Git via [downloadable installer](https://git-scm.com/download/win)
 
