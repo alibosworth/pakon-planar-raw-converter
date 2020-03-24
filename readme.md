@@ -149,6 +149,8 @@ Here are some options you can run:
 
 * `--no-dependency-check` Skip the dependency check.  Currently necessary to run the script on Windows XP.
 
+* `--gamma1` Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma.
+
 ----------
 
 ## Questions?
