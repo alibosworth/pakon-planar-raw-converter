@@ -21,7 +21,7 @@ var BYTE_SIZE_TO_DIMENSIONS = { // A map of file size to the size value base to 
 };
 
 program
-  .version('0.0.12')
+  .version('0.0.13')
   .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
   .option('--no-negfix', 'Skip running negfix8, leaving you with raw .tiff files for further processing with another tool')
   .option('--no-dependency-check', 'Avoid checking for dependencies')
@@ -29,12 +29,13 @@ program
   .option('--e6', 'Skip running negfix8, apply ImageMagick\'s -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo')
   .option('--bw', 'Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save in grey-scale colorspace')
   .option('--bw-rgb', 'Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save in RGB colorspace')
+  .option('--gamma1', 'Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma')
   .parse(process.argv);
 
 checkForDependencies().then(function(){
   if (!fs.existsSync(program.outputDir)){
     fs.mkdirSync(program.outputDir);
-  }
+  } 
 
   var rawFiles = scanDirectoryForFiles();
   var usableRawFilesWithSizeData = checkRawFileSizes(rawFiles);
@@ -82,7 +83,7 @@ function checkRawFileSizes(rawFiles){
     var sizeInBytes = fs.statSync(filePath).size;
     var dimensionsForConvert;
     if (program.dimensions && program.dimensions.split("x").length === 2) {
-      // Manually specified image dimensions, but lets confirm
+      // Manually specified image dimensions, but let's confirm
       var splitDimensions = program.dimensions.split("x"),
           width = parseInt(splitDimensions[0], 10),
           height = parseInt(splitDimensions[1], 10);
@@ -120,11 +121,16 @@ function checkRawFileSizes(rawFiles){
 }
 
 function convertRawFilesToTiff (data) {
-  process.stdout.write("CONVERTING: ");
+  var actionLabel = "CONVERTING"
+
+  if (program.gamma1) {
+    actionLabel = actionLabel + " (without gamma adjustment)"
+  }
+  process.stdout.write(`${actionLabel}: `);
   var conversionPromises = [];
 
   for (var item in data) {
-     var promise = convertRawToTif(item, data[item].size);
+     var promise = convertRawToTiff(item, data[item].size);
      conversionPromises.push(promise);
      promise.then(function() {
        process.stdout.write(" ▢ ");
@@ -135,7 +141,7 @@ function convertRawFilesToTiff (data) {
   return Promise.all(conversionPromises);
 }
 
-function convertRawToTif (name, sizeParameter) {
+function convertRawToTiff (name, sizeParameter) {
   var baseName = path.basename(name, ".raw");
   var destinationFile = `${baseName}.tif`;
   var noNegfix = program.negfix === false || program.e6 || program.bw || program.bwRgb;
@@ -153,7 +159,8 @@ function convertRawToTif (name, sizeParameter) {
     extra = extra + " -negate -auto-level";
   }
 
-  var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" -gamma 2.2 ${extra} -interlace none tif:"${destinationFile}"`;
+
+  var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" ${program.gamma1 ? "" : "-gamma 2.2"} ${extra} -interlace none tif:"${destinationFile}"`;
 
   if (process.platform === "win32") {
     cmd = "magick " + cmd;

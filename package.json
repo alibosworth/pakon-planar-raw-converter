@@ -1,6 +1,6 @@
 {
   "name": "pakon-planar-raw-converter",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "A script to convert Pakon F-135+ Planar RAW scans from TLXClientDemo into usable files via ImageMagick's Convert and NegFix8",
   "keywords": [
     "kodak",
