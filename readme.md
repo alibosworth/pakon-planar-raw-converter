@@ -1,8 +1,8 @@
 # Pakon Planar Raw Converter (PPRC)
 
-This is a small script to automate the process of converting the 16-bit Planar Raw files produced by TLXClientDemo into useful images.  Behind the scenes [ImageMagick](http://www.imagemagick.org/) is used to convert the planar file to a 16-bit TIFF and [negpro](https://github.com/alibosworth/negpro) is optionally used to invert/balance the negative scan (before version 0.1.0 Negfix8 was used to invert the images).
+This is a small script to automate the process of converting the 16-bit Planar Raw files produced by TLXClientDemo into useful images.  The raw planar data is converted directly to a 16-bit TIFF and [negpro](https://github.com/alibosworth/negpro) is optionally used to invert/balance the negative scan (before version 0.1.0 Negfix8 was used to invert the images).
 
-The result of this is "normal" looking files that contain all the data that the Pakon 135+ is able to save, or optionally just dark/orange negative "linear scan" TIFF files that you can then process via tools like [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  Additionally the "--e6", "--bw", or "--bw-rgb" options may be used to perform additional steps via ImageMagick on the TIFF file instead of negpro.  You may need to use the [TLX_ScanEnable](https://github.com/sgharvey/pakon-tlx-addons) AutoIt script to enable B&W and Positive scanning modes that make these options useful.
+The result of this is "normal" looking files that contain all the data that the Pakon 135+ is able to save, or optionally just dark/orange negative "linear scan" TIFF files that you can then process via tools like [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  Additionally the "--e6", "--bw", or "--bw-rgb" options may be used to perform auto-leveling and inversion on the TIFF file instead of negpro.  You may need to use the [TLX_ScanEnable](https://github.com/sgharvey/pakon-tlx-addons) AutoIt script to enable B&W and Positive scanning modes that make these options useful.
 
 The benefit of using this workflow is that you get the full 16-bits worth of image data rather than only the 8-bit files exported by PSI.  [Here are some comparisons](https://alibosworth.github.io/pakon-planar-raw-converter/comparison/) of standard PSI output vs TLXCD raw output.
 
@@ -24,7 +24,7 @@ While internally the Pakon 135+ is dealing with 16-bits of image data, PSI can o
 
 ### I can just convert the planar raw files produced by TLXClientDemo with Photoshop, why would I want to use this script?
 
-Yes, you can use Photoshop's raw file handling to open/convert a planar raw file, but you'll have to specify the image details (dimensions, channel count, bit-depth, header offset) each time, and then save out to a TIFF.  This script scans a whole directory of images using the file sizes to automatically know what resolution you've scanned at, then uses the ImageMagick library to convert to a standard TIFF (and then if you want also inverts it into a "positive" image using [negpro](https://github.com/alibosworth/negpro)).
+Yes, you can use Photoshop's raw file handling to open/convert a planar raw file, but you'll have to specify the image details (dimensions, channel count, bit-depth, header offset) each time, and then save out to a TIFF.  This script scans a whole directory of images using the file sizes to automatically know what resolution you've scanned at, then converts to a standard 16-bit TIFF (and then if you want also inverts it into a "positive" image using [negpro](https://github.com/alibosworth/negpro)).
 
 ## How does the color inversion work?
 
@@ -40,13 +40,13 @@ This is all done using [negpro](https://github.com/alibosworth/negpro) which is 
 
 ## Installing
 
-You need to have Node and ImageMagick on your system, and then install this script "globally" so you can run it from any directory.  Technically all of the above should be possible on any kind of computer, but here's the easiest way to do it if you are on OSX.
+You need to have Node on your system, and then install this script "globally" so you can run it from any directory.
 
-### OSX
+### macOS
 
 #### Short version (if you have [homebrew](http://brew.sh/) installed):
 
-* `brew install imagemagick node npm`
+* `brew install node npm`
 * `npm install -g pakon-planar-raw-converter`
 
 #### Long version:
@@ -57,9 +57,7 @@ You need to have Node and ImageMagick on your system, and then install this scri
 
 3) Install Node, which runs Javascript outside of your browser. This is needed because even though this script and your scans and your Pakon have nothing to do with the internet, this script is written in Javascript. The easiest way to install it is to type `brew install node npm` in your terminal.  You can also [download an installer](https://nodejs.org/en/) however you may run into [permission issues](https://docs.npmjs.com/getting-started/fixing-npm-permissions) when trying to globally install the script later.
 
-4) Install ImageMagick by typing `brew install imagemagick` in your terminal. You may also install it manually.
-
-5) Install PPRC globally via `npm install -g pakon-planar-raw-converter`
+4) Install PPRC globally via `npm install -g pakon-planar-raw-converter`
 
 ### Windows
 
@@ -67,11 +65,9 @@ You need to have Node and ImageMagick on your system, and then install this scri
 
 1) Install Node via [downloadable installer](https://nodejs.org/en/)
 
-2) Install Imagemagick via [downloadable installer](http://www.imagemagick.org/script/binary-releases.php#windows)
+2) Open the command prompt by clicking the start button and searching for "cmd" and running it
 
-3) Open the command prompt by clicking the start button and searching for "cmd" and running it
-
-4) run `npm install -g pakon-planar-raw-converter`
+3) run `npm install -g pakon-planar-raw-converter`
 
 ------------------
 
@@ -124,7 +120,7 @@ Simply run `pprc` from the directory containing your raw images.
 
 You must run this program from your computer's "terminal", that means that it is text-based rather than mouse-based, but it should be easy even if you have never done that kind of thing before.  Once you've installed it, all you have to do is:
 
-1) Open your computer's terminal by pressing CMD-space and typing "terminal" and hitting enter (assuming OSX).
+1) Open your computer's terminal by pressing CMD-space and typing "terminal" and hitting enter (assuming macOS).
 
 2) Travel to the directory where your TLXClientDemo created raw files are, the easiest way to do this is to type `cd `  in the terminal (that is "cd" for Change Directory, followed by a space), and then drag the folder that contains your images into the terminal window from Finder.  When you do this it knows to insert the location of the dropped directory, so it might look like `cd /Users/alibosworth/Photos/scans/roll5`.  If it looks like that press the enter key, and you will now be "in" the directory containing your images.
 
@@ -151,13 +147,11 @@ Here are some options you can run:
 
 * `--dimensions [width]x[height]` Specify a non-standard image size if you adjust the framing within TLXClient.
 
-* `--e6` Skip running negpro, apply ImageMagick's -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
+* `--e6` Skip running negpro, apply auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
 
-* `--bw` Skip running negpro, instead do the following via ImageMagick: invert, auto-level, and save as grey-scale colorspace.
+* `--bw` Skip running negpro, instead: invert, auto-level, and save as grey-scale colorspace.
 
-* `--bw-rgb` Skip running negpro, instead do the following via ImageMagick: invert, auto-level, and save in RGB colorspace.
-
-* `--no-dependency-check` Skip the dependency check.
+* `--bw-rgb` Skip running negpro, instead: invert, auto-level, and save in RGB colorspace.
 
 * `--gamma1` Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma.
 

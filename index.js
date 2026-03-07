@@ -3,10 +3,8 @@ var fs = require( 'fs' );
 var path = require( 'path' );
 var process = require( "process" );
 var glob = require('glob');
-var promiseExec = require('child-process-promise').exec;
 var Promise = require("bluebird");
 var negpro = require('negpro');
-var checkDependencies = require('./lib/check-dependencies');
 var program = require('commander');
 var pkg = require('./package.json');
 
@@ -26,11 +24,10 @@ program
   .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
   .option('--no-invert', 'Skip negative inversion, leaving you with raw .tiff files for further processing with another tool')
   .option('--no-negfix', '[deprecated: use --no-invert] Skip negative inversion')
-  .option('--no-dependency-check', 'Avoid checking for dependencies')
   .option('--dimensions [width]x[height]', 'Manually specify pixel dimensions of raw file (useful for xpan, etc) format like "3000x2000"')
-  .option('--e6', 'Skip negative inversion, apply ImageMagick\'s -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo')
-  .option('--bw', 'Skip negative inversion, instead do the following via ImageMagick: invert, auto-level, and save in grey-scale colorspace')
-  .option('--bw-rgb', 'Skip negative inversion, instead do the following via ImageMagick: invert, auto-level, and save in RGB colorspace')
+  .option('--e6', 'Skip negative inversion, apply auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo')
+  .option('--bw', 'Skip negative inversion, instead: invert, auto-level, and save in grey-scale colorspace')
+  .option('--bw-rgb', 'Skip negative inversion, instead: invert, auto-level, and save in RGB colorspace')
   .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing one across all files')
   .option('--keep-tiffs', 'Keep the intermediate tiff files instead of deleting them after inversion')
   .option('--gamma1', 'Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma')
@@ -56,8 +53,8 @@ if (noInvert) {
   tiffDir = "temp_tiffs_" + Date.now();
 }
 
-checkForDependencies().then(function(){
-  // Check output dir for existing tiffs
+// Check output dir for existing tiffs
+(function() {
   if (fs.existsSync(program.outputDir)){
     var existingFiles = fs.readdirSync(program.outputDir).filter(function(f) { return /\.tiff?$/i.test(f); });
     if (existingFiles.length > 0) {
@@ -107,7 +104,7 @@ checkForDependencies().then(function(){
       });
     }
   });
-});
+})();
 
 function scanDirectoryForFiles () {
   var rawFiles = glob.sync('*.raw', {});
@@ -203,26 +200,166 @@ function convertRawFilesToTiff (data) {
 function convertRawToTiff (name, sizeParameter) {
   var baseName = path.basename(name, ".raw");
   var destinationFile = path.join(tiffDir, `${baseName}.tif`);
-  var extra = "";
 
+  // Parse "WxH" or "WxH+offset"
+  var parts = sizeParameter.split('+');
+  var dims = parts[0].split('x');
+  var width = parseInt(dims[0], 10);
+  var height = parseInt(dims[1], 10);
+  var headerOffset = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+
+  var rawBuffer = fs.readFileSync(name);
+  if (headerOffset > 0) {
+    rawBuffer = rawBuffer.slice(headerOffset);
+  }
+
+  var pixelCount = width * height;
+  var rawU16 = new Uint16Array(rawBuffer.buffer, rawBuffer.byteOffset, pixelCount * 3);
+
+  // Deplanarize: RRRGGGBBB → RGBRGBRGB
+  var interleaved = new Uint16Array(pixelCount * 3);
+  for (var i = 0; i < pixelCount; i++) {
+    interleaved[i * 3]     = rawU16[i];
+    interleaved[i * 3 + 1] = rawU16[pixelCount + i];
+    interleaved[i * 3 + 2] = rawU16[pixelCount * 2 + i];
+  }
+
+  // Gamma 2.2 correction
+  if (!program.gamma1) {
+    var invGamma = 1.0 / 2.2;
+    for (var j = 0; j < interleaved.length; j++) {
+      interleaved[j] = Math.round(65535 * Math.pow(interleaved[j] / 65535, invGamma));
+    }
+  }
+
+  // Mode-specific operations
   if (program.e6) {
-    extra = extra + " -auto-level";
-  } else if (program.bw) {
-    extra = extra + " -negate -auto-level -colorspace Gray";
-  } else if (program.bwRgb) {
-    extra = extra + " -negate -auto-level";
+    autoLevel(interleaved);
+  } else if (program.bw || program.bwRgb) {
+    // Negate
+    for (var j = 0; j < interleaved.length; j++) {
+      interleaved[j] = 65535 - interleaved[j];
+    }
+    autoLevel(interleaved);
   }
 
+  var outputChannels = 3;
+  var outputData = interleaved;
 
-  var cmd = `magick -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" ${program.gamma1 ? "" : "-gamma 2.2"} ${extra} -interlace none tif:"${destinationFile}"`;
-
-  if (process.platform === "win32") {
-    cmd = "magick " + cmd;
+  // Grayscale conversion for --bw
+  if (program.bw) {
+    var gray = new Uint16Array(pixelCount);
+    for (var i = 0; i < pixelCount; i++) {
+      gray[i] = Math.round(
+        0.2126 * interleaved[i * 3] +
+        0.7152 * interleaved[i * 3 + 1] +
+        0.0722 * interleaved[i * 3 + 2]
+      );
+    }
+    outputData = gray;
+    outputChannels = 1;
   }
 
-  return promiseExec(cmd).then(function(){
-    return `${destinationFile}`;
-  });
+  writeTiff16(destinationFile, outputData, width, height, outputChannels);
+  return Promise.resolve(destinationFile);
+}
+
+function writeTiff16(filePath, pixelData, width, height, channels) {
+  // Write uncompressed 16-bit TIFF (little-endian)
+  var pixelBytes = width * height * channels * 2;
+  var bpsCount = channels;
+
+  // IFD entries count
+  var numEntries = 12;
+  var ifdOffset = 8; // right after header
+  var ifdSize = 2 + numEntries * 12 + 4; // count + entries + next IFD pointer
+
+  // Extra data after IFD: BitsPerSample values (if channels > 1), XRes, YRes
+  var extraOffset = ifdOffset + ifdSize;
+  var bpsValuesOffset = extraOffset;
+  var bpsSize = bpsCount > 1 ? bpsCount * 2 : 0; // inline if single value
+  var xResOffset = extraOffset + bpsSize;
+  var yResOffset = xResOffset + 8;
+  var pixelDataOffset = yResOffset + 8;
+
+  var fileSize = pixelDataOffset + pixelBytes;
+  var buf = Buffer.alloc(fileSize);
+
+  // Header
+  buf.write('II', 0); // little-endian
+  buf.writeUInt16LE(42, 2); // TIFF magic
+  buf.writeUInt32LE(ifdOffset, 4); // offset to IFD
+
+  var pos = ifdOffset;
+
+  // IFD entry count
+  buf.writeUInt16LE(numEntries, pos); pos += 2;
+
+  function writeEntry(tag, type, count, value) {
+    buf.writeUInt16LE(tag, pos); pos += 2;
+    buf.writeUInt16LE(type, pos); pos += 2;
+    buf.writeUInt32LE(count, pos); pos += 4;
+    if (type === 3 && count === 1) { // SHORT, single value
+      buf.writeUInt16LE(value, pos); pos += 4; // 2 bytes value + 2 bytes padding
+    } else {
+      buf.writeUInt32LE(value, pos); pos += 4;
+    }
+  }
+
+  // Tags must be in ascending order
+  writeEntry(256, 3, 1, width);           // ImageWidth (SHORT)
+  writeEntry(257, 3, 1, height);          // ImageLength (SHORT)
+  if (bpsCount === 1) {
+    writeEntry(258, 3, 1, 16);            // BitsPerSample (SHORT, inline)
+  } else {
+    writeEntry(258, 3, bpsCount, bpsValuesOffset); // BitsPerSample (SHORT array, offset)
+  }
+  writeEntry(259, 3, 1, 1);              // Compression: None
+  writeEntry(262, 3, 1, channels === 1 ? 1 : 2); // PhotometricInterpretation: MinIsBlack or RGB
+  writeEntry(273, 4, 1, pixelDataOffset); // StripOffsets (LONG)
+  writeEntry(274, 3, 1, 1);              // Orientation: top-left
+  writeEntry(277, 3, 1, channels);        // SamplesPerPixel
+  writeEntry(278, 3, 1, height);          // RowsPerStrip
+  writeEntry(279, 4, 1, pixelBytes);      // StripByteCounts (LONG)
+  writeEntry(282, 5, 1, xResOffset);      // XResolution (RATIONAL, offset)
+  writeEntry(283, 5, 1, yResOffset);      // YResolution (RATIONAL, offset)
+
+  // Next IFD pointer (0 = no more IFDs)
+  buf.writeUInt32LE(0, pos);
+
+  // Write BitsPerSample values (if multi-channel)
+  if (bpsCount > 1) {
+    for (var i = 0; i < bpsCount; i++) {
+      buf.writeUInt16LE(16, bpsValuesOffset + i * 2);
+    }
+  }
+
+  // XResolution: 72/1
+  buf.writeUInt32LE(72, xResOffset);
+  buf.writeUInt32LE(1, xResOffset + 4);
+  // YResolution: 72/1
+  buf.writeUInt32LE(72, yResOffset);
+  buf.writeUInt32LE(1, yResOffset + 4);
+
+  // Write pixel data
+  var pixelBuf = Buffer.from(pixelData.buffer, pixelData.byteOffset, pixelData.byteLength);
+  pixelBuf.copy(buf, pixelDataOffset);
+
+  fs.writeFileSync(filePath, buf);
+}
+
+function autoLevel(data) {
+  var min = 65535, max = 0;
+  for (var i = 0; i < data.length; i++) {
+    if (data[i] < min) min = data[i];
+    if (data[i] > max) max = data[i];
+  }
+  if (max > min) {
+    var scale = 65535 / (max - min);
+    for (var i = 0; i < data.length; i++) {
+      data[i] = Math.round((data[i] - min) * scale);
+    }
+  }
 }
 
 function adjustTifsWithNegpro(tifs) {
@@ -284,25 +421,6 @@ function adjustTifsWithNegpro(tifs) {
   }).then(function(results) {
     return results;
   });
-}
-
-function checkForDependencies() {
-  if (program.dependencyCheck === false) {
-    console.log("Skipping Dependancy Check...")
-    return Promise.resolve()
-  }
-
-  var promises = [];
-
-  if (process.platform === "win32") {
-    promises.push(checkDependencies("magick").then(function(success, error){
-      if (!success) {
-        exitWithError("'magick' from ImageMagick doesn't seem to exist, please install it");
-      }
-    }));
-  } 
-
-  return Promise.all(promises);
 }
 
 function exitWithError (message) {
