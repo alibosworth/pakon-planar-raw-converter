@@ -1,7 +1,7 @@
 {
   "name": "pakon-planar-raw-converter",
   "version": "0.1.0-beta.0",
-  "description": "A script to convert Pakon F-135+ Planar RAW scans from TLXClientDemo into usable files via ImageMagick's Convert and negpro",
+  "description": "A script to convert Pakon F-135+ Planar RAW scans from TLXClientDemo into usable files",
   "keywords": [
     "kodak",
     "pakon",
@@ -16,13 +16,15 @@
     "raw",
     "planar",
     "linear",
-    "imagemagick",
     "negfix8",
     "negpro",
     "photography",
     "35mm",
     "images"
   ],
+  "scripts": {
+    "test": "node tests/test.js"
+  },
   "main": "index.js",
   "author": "Ali Bosworth <ali@alibosworth.com> (https://alibosworth.com/)",
   "license": "GPL-3.0",
@@ -33,8 +35,6 @@
   "preferGlobal": true,
   "dependencies": {
     "bluebird": "^3.5.1",
-    "child-process-promise": "^2.2.1",
-    "command-exists": "^1.2.2",
     "commander": "^2.12.2",
     "glob": "^7.1.2",
     "negpro": "^0.0.1"
