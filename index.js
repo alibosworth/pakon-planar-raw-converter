@@ -4,10 +4,11 @@ var path = require( 'path' );
 var process = require( "process" );
 var glob = require('glob');
 var promiseExec = require('child-process-promise').exec;
-var execSync = require('child_process').execSync;
 var Promise = require("bluebird");
+var negpro = require('negpro');
 var checkDependencies = require('./lib/check-dependencies');
 var program = require('commander');
+var pkg = require('./package.json');
 
 var OUTPUT_DIR = "out";
 
@@ -21,31 +22,65 @@ var BYTE_SIZE_TO_DIMENSIONS = { // A map of file size to the size value base to 
 };
 
 program
-  .version('0.0.13')
+  .version(pkg.version)
   .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
-  .option('--no-negfix', 'Skip running negfix8, leaving you with raw .tiff files for further processing with another tool')
+  .option('--no-invert', 'Skip negative inversion, leaving you with raw .tiff files for further processing with another tool')
+  .option('--no-negfix', '[deprecated: use --no-invert] Skip negative inversion')
   .option('--no-dependency-check', 'Avoid checking for dependencies')
   .option('--dimensions [width]x[height]', 'Manually specify pixel dimensions of raw file (useful for xpan, etc) format like "3000x2000"')
-  .option('--e6', 'Skip running negfix8, apply ImageMagick\'s -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo')
-  .option('--bw', 'Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save in grey-scale colorspace')
-  .option('--bw-rgb', 'Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save in RGB colorspace')
+  .option('--e6', 'Skip negative inversion, apply ImageMagick\'s -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo')
+  .option('--bw', 'Skip negative inversion, instead do the following via ImageMagick: invert, auto-level, and save in grey-scale colorspace')
+  .option('--bw-rgb', 'Skip negative inversion, instead do the following via ImageMagick: invert, auto-level, and save in RGB colorspace')
+  .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing one across all files')
+  .option('--keep-tiffs', 'Keep the intermediate tiff files instead of deleting them after inversion')
   .option('--gamma1', 'Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma')
   .parse(process.argv);
 
+// Handle deprecated --no-negfix flag
+if (program.negfix === false) {
+  console.warn("Warning: --no-negfix is deprecated, use --no-invert instead");
+  program.invert = false;
+}
+
+var noInvert = program.invert === false || program.e6 || program.bw || program.bwRgb;
+var tiffDir;
+
+if (noInvert) {
+  // When skipping inversion, tiffs are the final output — put them in the output dir
+  tiffDir = program.outputDir;
+} else if (program.keepTiffs) {
+  // Keep tiffs in a "tiffs" subdirectory
+  tiffDir = "tiffs";
+} else {
+  // Temp dir that gets cleaned up after inversion
+  tiffDir = "temp_tiffs_" + Date.now();
+}
+
 checkForDependencies().then(function(){
-  if (!fs.existsSync(program.outputDir)){
+  // Check output dir for existing tiffs
+  if (fs.existsSync(program.outputDir)){
+    var existingFiles = fs.readdirSync(program.outputDir).filter(function(f) { return /\.tiff?$/i.test(f); });
+    if (existingFiles.length > 0) {
+      exitWithError(`Output directory '${program.outputDir}' already contains ${existingFiles.length} TIFF file${existingFiles.length === 1 ? '' : 's'}. Please remove or rename it before running again.`);
+    }
+  } else if (!noInvert) {
     fs.mkdirSync(program.outputDir);
-  } 
+  }
+
+  // Create the tiff directory
+  if (!fs.existsSync(tiffDir)) {
+    fs.mkdirSync(tiffDir);
+  }
 
   var rawFiles = scanDirectoryForFiles();
   var usableRawFilesWithSizeData = checkRawFileSizes(rawFiles);
   convertRawFilesToTiff(usableRawFilesWithSizeData).then(function(tifs){
     process.stdout.write("\n");
 
-    if (program.negfix === false || program.e6 || program.bw || program.bwRgb) {
+    if (noInvert) {
       var verb;
       if (program.e6) {
-        varb = "auto-leveled";
+        verb = "auto-leveled";
       } else if (program.bw) {
         verb = "inverted and auto-leveled greyscale";
       } else if (program.bwRgb) {
@@ -53,12 +88,23 @@ checkForDependencies().then(function(){
       } else {
         verb = "raw";
       }
-      console.log(`Done. ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as a ${verb} TIFF.`);
+      console.log(`Done. ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to the '${tiffDir}' subdirectory as a ${verb} TIFF.`);
     } else {
-      console.log("Converted raw files to tifs, inverting and balancing with negfix8...");
-      var convertedFiles = adjustTifsWithNegfix8(tifs);
-      process.stdout.write("\n");
-      console.log(`Done. ${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as processed TIFF.`);
+      adjustTifsWithNegpro(tifs).then(function(convertedFiles) {
+        process.stdout.write("\n");
+        // Clean up temp tiff directory unless --keep-tiffs
+        if (!program.keepTiffs) {
+          tifs.forEach(function(tif) {
+            try { fs.unlinkSync(tif); } catch (e) {}
+          });
+          try { fs.rmdirSync(tiffDir); } catch (e) {}
+          console.log("Deleted temporary tiffs, use --keep-tiffs to disable deleting.");
+        }
+        console.log(`Done. ${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as processed TIFF.`);
+        if (program.keepTiffs) {
+          console.log(`Intermediate tiff files kept in '${tiffDir}'.`);
+        }
+      });
     }
   });
 });
@@ -121,35 +167,43 @@ function checkRawFileSizes(rawFiles){
 }
 
 function convertRawFilesToTiff (data) {
-  var actionLabel = "CONVERTING"
+  var label = "Converting raw files to tiff files";
 
   if (program.gamma1) {
-    actionLabel = actionLabel + " (without gamma adjustment)"
+    label = label + " (without gamma adjustment)";
   }
-  process.stdout.write(`${actionLabel}: `);
+
+  console.log(label);
+
+  var items = Object.keys(data);
+  var convertDone = items.map(function() { return false; });
+
+  function renderConvertProgress() {
+    var bar = convertDone.map(function(done) { return done ? '✓' : '▢'; }).join(' ');
+    process.stdout.write(`\r${bar}`);
+  }
+
+  renderConvertProgress();
   var conversionPromises = [];
 
-  for (var item in data) {
+  items.forEach(function(item, index) {
      var promise = convertRawToTiff(item, data[item].size);
      conversionPromises.push(promise);
-     promise.then(function() {
-       process.stdout.write(" ▢ ");
+     promise.then(function(result) {
+       convertDone[index] = true;
+       renderConvertProgress();
+       return result;
      }).catch(function(error) {
        exitWithError("Error converting a file from a raw to a tiff", item);
      });
-  }
+  });
   return Promise.all(conversionPromises);
 }
 
 function convertRawToTiff (name, sizeParameter) {
   var baseName = path.basename(name, ".raw");
-  var destinationFile = `${baseName}.tif`;
-  var noNegfix = program.negfix === false || program.e6 || program.bw || program.bwRgb;
+  var destinationFile = path.join(tiffDir, `${baseName}.tif`);
   var extra = "";
-
-  if (noNegfix) {
-    destinationFile = path.join(program.outputDir, destinationFile);
-  }
 
   if (program.e6) {
     extra = extra + " -auto-level";
@@ -160,7 +214,7 @@ function convertRawToTiff (name, sizeParameter) {
   }
 
 
-  var cmd = `convert -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" ${program.gamma1 ? "" : "-gamma 2.2"} ${extra} -interlace none tif:"${destinationFile}"`;
+  var cmd = `magick -size ${sizeParameter} -depth 16 -interlace plane rgb:"${name}" ${program.gamma1 ? "" : "-gamma 2.2"} ${extra} -interlace none tif:"${destinationFile}"`;
 
   if (process.platform === "win32") {
     cmd = "magick " + cmd;
@@ -171,20 +225,65 @@ function convertRawToTiff (name, sizeParameter) {
   });
 }
 
-function adjustTifsWithNegfix8(tifs) {
-  process.stdout.write("ADJUSTING: ");
-  var result = []
-  tifs.forEach(function(tif){
-    process.stdout.write(" ▢ ");
-    var cmd = `negfix8 -cs "${tif}" "${program.outputDir}/${tif}"`;
-    var executedCommand = execSync(cmd);
-    if (executedCommand.stderr) {
-      console.log(`Error converting ${tif} to ${program.outputDir}/${tif}`);
-    } else {
-      result.push(tif);
-    }
+function adjustTifsWithNegpro(tifs) {
+  var perImage = !!program.perImageBalancing;
+  var tifPaths = tifs.map(function(tif) {
+    return path.resolve(tif);
   });
-  return result;
+
+  var totalFiles = tifPaths.length;
+  var analysisDone = [];
+  var adjustDone = [];
+  for (var i = 0; i < totalFiles; i++) {
+    analysisDone.push(false);
+    adjustDone.push(false);
+  }
+
+  var analyzeLabelPrinted = false;
+  var invertLabelPrinted = false;
+
+  function renderProgress(completed) {
+    var bar = completed.map(function(done) { return done ? '✓' : '▢'; }).join(' ');
+    process.stdout.write(`\r${bar}`);
+  }
+
+  if (perImage) {
+    console.log("Inverting tiff files with negpro (per-image balancing)");
+  }
+
+  return negpro.processFiles(tifPaths, {
+    outputDir: path.resolve(program.outputDir),
+    perImage: perImage,
+    onProgress: function(event) {
+      if (perImage) {
+        // In per-image mode, analyze+invert are interleaved per file,
+        // so just track completion with a single progress bar
+        if (event.type === 'done') {
+          adjustDone[event.index] = true;
+          renderProgress(adjustDone);
+        }
+      } else {
+        if (event.type === 'analyzing') {
+          if (!analyzeLabelPrinted) {
+            analyzeLabelPrinted = true;
+            console.log("Analysing tiff files to determine average image data for inversion");
+          }
+          analysisDone[event.index] = true;
+          renderProgress(analysisDone);
+        } else if (event.type === 'profile-computed') {
+          process.stdout.write("\n");
+        } else if (event.type === 'processing' && !invertLabelPrinted) {
+          invertLabelPrinted = true;
+          console.log("Inverting tiff files with negpro");
+        } else if (event.type === 'done') {
+          adjustDone[event.index] = true;
+          renderProgress(adjustDone);
+        }
+      }
+    }
+  }).then(function(results) {
+    return results;
+  });
 }
 
 function checkForDependencies() {
@@ -201,19 +300,7 @@ function checkForDependencies() {
         exitWithError("'magick' from ImageMagick doesn't seem to exist, please install it");
       }
     }));
-  } else {
-    promises.push(checkDependencies("convert").then(function(success, error){
-      if (!success) {
-        exitWithError("'convert' from ImageMagick doesn't seem to exist, please install it");
-      }
-    }));
-  }
-
-  promises.push(checkDependencies("negfix8").then(function(success, error){
-    if (!success) {
-      exitWithError("'negfix8'doesn't seem to exist, please install it");
-    }
-  }));
+  } 
 
   return Promise.all(promises);
 }
