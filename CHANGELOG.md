@@ -1,3 +1,7 @@
+# 0.1.0
+
+Replace negfix8 with a new library called negpro that is faster and has more features
+
 # 0.0.13 
 
 Add option `--gamma1` to avoid applying a gamma correction of 2.2 to the raw file
