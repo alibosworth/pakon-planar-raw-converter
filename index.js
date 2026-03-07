@@ -3,6 +3,7 @@ var fs = require( 'fs' );
 var path = require( 'path' );
 var process = require( "process" );
 var glob = require('glob');
+var { Worker } = require('worker_threads');
 var Promise = require("bluebird");
 var negpro = require('negpro');
 var program = require('commander');
@@ -201,165 +202,26 @@ function convertRawToTiff (name, sizeParameter) {
   var baseName = path.basename(name, ".raw");
   var destinationFile = path.join(tiffDir, `${baseName}.tif`);
 
-  // Parse "WxH" or "WxH+offset"
-  var parts = sizeParameter.split('+');
-  var dims = parts[0].split('x');
-  var width = parseInt(dims[0], 10);
-  var height = parseInt(dims[1], 10);
-  var headerOffset = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+  var mode = 'default';
+  if (program.e6) mode = 'e6';
+  else if (program.bw) mode = 'bw';
+  else if (program.bwRgb) mode = 'bw-rgb';
 
-  var rawBuffer = fs.readFileSync(name);
-  if (headerOffset > 0) {
-    rawBuffer = rawBuffer.slice(headerOffset);
-  }
-
-  var pixelCount = width * height;
-  var rawU16 = new Uint16Array(rawBuffer.buffer, rawBuffer.byteOffset, pixelCount * 3);
-
-  // Deplanarize: RRRGGGBBB → RGBRGBRGB
-  var interleaved = new Uint16Array(pixelCount * 3);
-  for (var i = 0; i < pixelCount; i++) {
-    interleaved[i * 3]     = rawU16[i];
-    interleaved[i * 3 + 1] = rawU16[pixelCount + i];
-    interleaved[i * 3 + 2] = rawU16[pixelCount * 2 + i];
-  }
-
-  // Gamma 2.2 correction
-  if (!program.gamma1) {
-    var invGamma = 1.0 / 2.2;
-    for (var j = 0; j < interleaved.length; j++) {
-      interleaved[j] = Math.round(65535 * Math.pow(interleaved[j] / 65535, invGamma));
-    }
-  }
-
-  // Mode-specific operations
-  if (program.e6) {
-    autoLevel(interleaved);
-  } else if (program.bw || program.bwRgb) {
-    // Negate
-    for (var j = 0; j < interleaved.length; j++) {
-      interleaved[j] = 65535 - interleaved[j];
-    }
-    autoLevel(interleaved);
-  }
-
-  var outputChannels = 3;
-  var outputData = interleaved;
-
-  // Grayscale conversion for --bw
-  if (program.bw) {
-    var gray = new Uint16Array(pixelCount);
-    for (var i = 0; i < pixelCount; i++) {
-      gray[i] = Math.round(
-        0.2126 * interleaved[i * 3] +
-        0.7152 * interleaved[i * 3 + 1] +
-        0.0722 * interleaved[i * 3 + 2]
-      );
-    }
-    outputData = gray;
-    outputChannels = 1;
-  }
-
-  writeTiff16(destinationFile, outputData, width, height, outputChannels);
-  return Promise.resolve(destinationFile);
-}
-
-function writeTiff16(filePath, pixelData, width, height, channels) {
-  // Write uncompressed 16-bit TIFF (little-endian)
-  var pixelBytes = width * height * channels * 2;
-  var bpsCount = channels;
-
-  // IFD entries count
-  var numEntries = 12;
-  var ifdOffset = 8; // right after header
-  var ifdSize = 2 + numEntries * 12 + 4; // count + entries + next IFD pointer
-
-  // Extra data after IFD: BitsPerSample values (if channels > 1), XRes, YRes
-  var extraOffset = ifdOffset + ifdSize;
-  var bpsValuesOffset = extraOffset;
-  var bpsSize = bpsCount > 1 ? bpsCount * 2 : 0; // inline if single value
-  var xResOffset = extraOffset + bpsSize;
-  var yResOffset = xResOffset + 8;
-  var pixelDataOffset = yResOffset + 8;
-
-  var fileSize = pixelDataOffset + pixelBytes;
-  var buf = Buffer.alloc(fileSize);
-
-  // Header
-  buf.write('II', 0); // little-endian
-  buf.writeUInt16LE(42, 2); // TIFF magic
-  buf.writeUInt32LE(ifdOffset, 4); // offset to IFD
-
-  var pos = ifdOffset;
-
-  // IFD entry count
-  buf.writeUInt16LE(numEntries, pos); pos += 2;
-
-  function writeEntry(tag, type, count, value) {
-    buf.writeUInt16LE(tag, pos); pos += 2;
-    buf.writeUInt16LE(type, pos); pos += 2;
-    buf.writeUInt32LE(count, pos); pos += 4;
-    if (type === 3 && count === 1) { // SHORT, single value
-      buf.writeUInt16LE(value, pos); pos += 4; // 2 bytes value + 2 bytes padding
-    } else {
-      buf.writeUInt32LE(value, pos); pos += 4;
-    }
-  }
-
-  // Tags must be in ascending order
-  writeEntry(256, 3, 1, width);           // ImageWidth (SHORT)
-  writeEntry(257, 3, 1, height);          // ImageLength (SHORT)
-  if (bpsCount === 1) {
-    writeEntry(258, 3, 1, 16);            // BitsPerSample (SHORT, inline)
-  } else {
-    writeEntry(258, 3, bpsCount, bpsValuesOffset); // BitsPerSample (SHORT array, offset)
-  }
-  writeEntry(259, 3, 1, 1);              // Compression: None
-  writeEntry(262, 3, 1, channels === 1 ? 1 : 2); // PhotometricInterpretation: MinIsBlack or RGB
-  writeEntry(273, 4, 1, pixelDataOffset); // StripOffsets (LONG)
-  writeEntry(274, 3, 1, 1);              // Orientation: top-left
-  writeEntry(277, 3, 1, channels);        // SamplesPerPixel
-  writeEntry(278, 3, 1, height);          // RowsPerStrip
-  writeEntry(279, 4, 1, pixelBytes);      // StripByteCounts (LONG)
-  writeEntry(282, 5, 1, xResOffset);      // XResolution (RATIONAL, offset)
-  writeEntry(283, 5, 1, yResOffset);      // YResolution (RATIONAL, offset)
-
-  // Next IFD pointer (0 = no more IFDs)
-  buf.writeUInt32LE(0, pos);
-
-  // Write BitsPerSample values (if multi-channel)
-  if (bpsCount > 1) {
-    for (var i = 0; i < bpsCount; i++) {
-      buf.writeUInt16LE(16, bpsValuesOffset + i * 2);
-    }
-  }
-
-  // XResolution: 72/1
-  buf.writeUInt32LE(72, xResOffset);
-  buf.writeUInt32LE(1, xResOffset + 4);
-  // YResolution: 72/1
-  buf.writeUInt32LE(72, yResOffset);
-  buf.writeUInt32LE(1, yResOffset + 4);
-
-  // Write pixel data
-  var pixelBuf = Buffer.from(pixelData.buffer, pixelData.byteOffset, pixelData.byteLength);
-  pixelBuf.copy(buf, pixelDataOffset);
-
-  fs.writeFileSync(filePath, buf);
-}
-
-function autoLevel(data) {
-  var min = 65535, max = 0;
-  for (var i = 0; i < data.length; i++) {
-    if (data[i] < min) min = data[i];
-    if (data[i] > max) max = data[i];
-  }
-  if (max > min) {
-    var scale = 65535 / (max - min);
-    for (var i = 0; i < data.length; i++) {
-      data[i] = Math.round((data[i] - min) * scale);
-    }
-  }
+  return new Promise(function(resolve, reject) {
+    var worker = new Worker(path.join(__dirname, 'lib', 'convert-worker.js'), {
+      workerData: {
+        name: path.resolve(name),
+        sizeParameter: sizeParameter,
+        destinationFile: path.resolve(destinationFile),
+        applyGamma: !program.gamma1,
+        mode: mode
+      }
+    });
+    worker.on('message', function(result) {
+      resolve(result);
+    });
+    worker.on('error', reject);
+  });
 }
 
 function adjustTifsWithNegpro(tifs) {
