@@ -1,8 +1,8 @@
 # Pakon Planar Raw Converter (PPRC)
 
-This is a small script to automate the process of converting the 16-bit Planar Raw files produced by TLXClientDemo into useful images.  Behind the scenes [ImageMagick](http://www.imagemagick.org/) is used to convert the planar file to a 16-bit TIFF and [Negfix8](https://sites.google.com/site/negfix/) is optionally used to invert/balance the negative scan.
+This is a small script to automate the process of converting the 16-bit Planar Raw files produced by TLXClientDemo into useful images.  Behind the scenes [ImageMagick](http://www.imagemagick.org/) is used to convert the planar file to a 16-bit TIFF and [negpro](https://github.com/alibosworth/negpro) is optionally used to invert/balance the negative scan (before version 0.1.0 Negfix8 was used to invert the images).
 
-The result of this is "normal" looking files that contain all the data that the Pakon 135+ is able to save, or optionally just dark/orange negative "linear scan" TIFF files that you can then process via tools like [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  Additionally the "--e6", "--bw", or "--bw-rgb" options may be used to perform additional steps via ImageMagick on the TIFF file instead of Negfix8.  You may need to use the [TLX_ScanEnable](https://github.com/sgharvey/pakon-tlx-addons) AutoIt script to enable B&W and Positive scanning modes that make these options useful.
+The result of this is "normal" looking files that contain all the data that the Pakon 135+ is able to save, or optionally just dark/orange negative "linear scan" TIFF files that you can then process via tools like [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  Additionally the "--e6", "--bw", or "--bw-rgb" options may be used to perform additional steps via ImageMagick on the TIFF file instead of negpro.  You may need to use the [TLX_ScanEnable](https://github.com/sgharvey/pakon-tlx-addons) AutoIt script to enable B&W and Positive scanning modes that make these options useful.
 
 The benefit of using this workflow is that you get the full 16-bits worth of image data rather than only the 8-bit files exported by PSI.  [Here are some comparisons](https://alibosworth.github.io/pakon-planar-raw-converter/comparison/) of standard PSI output vs TLXCD raw output.
 
@@ -24,19 +24,29 @@ While internally the Pakon 135+ is dealing with 16-bits of image data, PSI can o
 
 ### I can just convert the planar raw files produced by TLXClientDemo with Photoshop, why would I want to use this script?
 
-Yes, you can use Photoshop's raw file handling to open/convert a planar raw file, but you'll have to specify the image details (dimensions, channel count, bit-depth, header offset) each time, and then save out to a TIFF.  This script scans a whole directory of images using the file sizes to automatically know what resolution you've scanned at, then uses the ImageMagick library to convert to a standard TIFF (and then if you want also inverts it into a "positive" image using Negfix8).
+Yes, you can use Photoshop's raw file handling to open/convert a planar raw file, but you'll have to specify the image details (dimensions, channel count, bit-depth, header offset) each time, and then save out to a TIFF.  This script scans a whole directory of images using the file sizes to automatically know what resolution you've scanned at, then uses the ImageMagick library to convert to a standard TIFF (and then if you want also inverts it into a "positive" image using [negpro](https://github.com/alibosworth/negpro)).
+
+## How does the color inversion work?
+
+This is all done using [negpro](https://github.com/alibosworth/negpro) which is based on [Negfix8](https://sites.google.com/site/negfix/). By default all images are analyzed and averaged so that the same calculations are used across your roll.  In general this leads to more consistent images. You can instead use the `--per-image-balancing` flag to balance each image individually.
+
+## How can I have more control over the color inversion
+
+[negpro](https://github.com/alibosworth/negpro) has many configuration options so if you install it and try out different options you can save your preferred config as `config.json` in `~/.negpro/` on macOS or `%USERPROFILE%\.negpro\config.json` on Windows, and your preferred configuration will automatically be used during inversion.
+
+
 
 ----------------------------------
 
 ## Installing
 
-You need to have Node, ImageMagick, and Negfix8 on your system, and then install this script "globally" so you can run it from any directory.  Technically all of the above should be possible on any kind of computer, but here's the easiest way to do it if you are on OSX.
+You need to have Node and ImageMagick on your system, and then install this script "globally" so you can run it from any directory.  Technically all of the above should be possible on any kind of computer, but here's the easiest way to do it if you are on OSX.
 
 ### OSX
 
 #### Short version (if you have [homebrew](http://brew.sh/) installed):
 
-* `brew install imagemagick negfix8 node npm`
+* `brew install imagemagick node npm`
 * `npm install -g pakon-planar-raw-converter`
 
 #### Long version:
@@ -47,7 +57,7 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 
 3) Install Node, which runs Javascript outside of your browser. This is needed because even though this script and your scans and your Pakon have nothing to do with the internet, this script is written in Javascript. The easiest way to install it is to type `brew install node npm` in your terminal.  You can also [download an installer](https://nodejs.org/en/) however you may run into [permission issues](https://docs.npmjs.com/getting-started/fixing-npm-permissions) when trying to globally install the script later.
 
-4) Install ImageMagick and Negfix8 by typing `brew install imagemagick negfix8` in your terminal. You may also install these dependencies manually.
+4) Install ImageMagick by typing `brew install imagemagick` in your terminal. You may also install it manually.
 
 5) Install PPRC globally via `npm install -g pakon-planar-raw-converter`
 
@@ -57,15 +67,11 @@ You need to have Node, ImageMagick, and Negfix8 on your system, and then install
 
 1) Install Node via [downloadable installer](https://nodejs.org/en/)
 
-2) Install Imagemagick via [downloadable installer](http://www.imagemagick.org/script/binary-releases.php#windows) (make sure to select "install legacy utilities" as negfix8 needs this)
+2) Install Imagemagick via [downloadable installer](http://www.imagemagick.org/script/binary-releases.php#windows)
 
-3) Install Git via [downloadable installer](https://git-scm.com/download/win)
+3) Open the command prompt by clicking the start button and searching for "cmd" and running it
 
-4) Download the Windows version of the [Negfix8 script](https://sites.google.com/site/negfix/downloads), and place it in C:\Windows\System32 (or elsewhere if you know how to make it globally available by updating your PATH)
-
-5) Open the command prompt by clicking the start button and searching for "cmd" and running it
-
-6) run `npm install -g pakon-planar-raw-converter`
+4) run `npm install -g pakon-planar-raw-converter`
 
 ------------------
 
@@ -129,27 +135,33 @@ You must run this program from your computer's "terminal", that means that it is
 
 By default when you run the command `pprc` in the directory containing your TLXClientDemo exported raw files the following things will happen:
 
-1) The planar .raw files will be converted to raw TIFF files left in place.
+1) The planar .raw files will be converted to temporary TIFF files.
 
-2) Negfix8 is run on these TIFF files and these files are placed in the "out" directory.
+2) [negpro](https://github.com/alibosworth/negpro) is run on these TIFF files to invert and balance the negatives, and the results are placed in the "out" directory. The temporary TIFF files are then deleted.
 
 Here are some options you can run:
 
-* `--no-negfix` Don't run negfix8.  This will leave you with TIFFs that look dark and orange but you can use other tools to process them them such as [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  If you use this options the raw TIFF files will be placed in the output directory.
+* `--no-invert` Don't run negpro.  This will leave you with TIFFs that look dark and orange but you can use other tools to process them such as [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  If you use this option the raw TIFF files will be placed in the output directory.
+
+* `--keep-tiffs` Keep the intermediate TIFF files in a "tiffs" subdirectory instead of deleting them after inversion.
+
+* `--per-image-balancing` Compute a separate inversion profile for each image instead of sharing one across all files. By default, all images are analysed together to produce a shared profile for more consistent results across a roll.
 
 * `--output-dir [dir]`  Specify a different output subdirectory rather than "out".
 
 * `--dimensions [width]x[height]` Specify a non-standard image size if you adjust the framing within TLXClient.
 
-* `--e6` Skip running negfix8, apply ImageMagick's -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
+* `--e6` Skip running negpro, apply ImageMagick's -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
 
-* `--bw` Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save as grey-scale colorspace.
+* `--bw` Skip running negpro, instead do the following via ImageMagick: invert, auto-level, and save as grey-scale colorspace.
 
-* `--bw-rgb` Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save in RGB colorspace.
+* `--bw-rgb` Skip running negpro, instead do the following via ImageMagick: invert, auto-level, and save in RGB colorspace.
 
-* `--no-dependency-check` Skip the dependency check.  Currently necessary to run the script on Windows XP.
+* `--no-dependency-check` Skip the dependency check.
 
 * `--gamma1` Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma.
+
+* `--no-negfix` Deprecated alias for `--no-invert`.
 
 ----------
 
