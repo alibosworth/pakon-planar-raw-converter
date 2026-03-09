@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no">
+  <title>{{ page.title | default: site.title }}</title>
+  <meta name="description" content="{{ page.description | default: site.description }}">
+  <meta name="author" content="Ali Bosworth">
+  <link rel="stylesheet" href="{{ '/normalize.css' | relative_url }}">
+  <link rel="stylesheet" href="{{ '/featherlight.css' | relative_url }}">
+  <link rel="stylesheet" href="{{ '/style.css' | relative_url }}">
+</head>
+<body class="{{ page.body_class }}">
+  <div id="content" class="{{ page.content_class | default: 'page' }}">
+    {{ content }}
+  </div>
+  {% if page.use_lightbox %}
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/featherlight@1.7.14/release/featherlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/featherlight@1.7.14/release/featherlight.gallery.min.js"></script>
+  <script>
+    $.featherlight.autoBind = false;
+    $(document).ready(function() {
+      if ($('.container.comparison').length) {
+        $('.comparison-table').featherlightGallery({
+          targetAttr: 'href',
+          filter: 'a',
+          galleryFadeIn: 0,
+          galleryFadeOut: 0,
+          openSpeed: 0,
+          closeSpeed: 0
+        });
+      }
+      $("a[href^='http://'], a[href^='https://']").attr('target', '_blank');
+    });
+  </script>
+  {% endif %}
+</body>
+</html>
