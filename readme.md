@@ -32,7 +32,7 @@ This is all done using [negpro](https://github.com/alibosworth/negpro) which is 
 
 ## How can I have more control over the color inversion
 
-[negpro](https://github.com/alibosworth/negpro) has many configuration options so if you install it and try out different options you can save your preferred config as `config.json` in `~/.negpro/` on macOS or `%USERPROFILE%\.negpro\config.json` on Windows, and your preferred configuration will automatically be used during inversion.
+[negpro](https://github.com/alibosworth/negpro) has many configuration options so if you install it and try out different options you can save your preferred config as `config.json` in `~/.negpro/` on macOS or `%USERPROFILE%\.negpro\config.json` on Windows, and your preferred configuration will automatically be used during inversion. 
 
 
 
@@ -149,9 +149,9 @@ Here are some options you can run:
 
 * `--e6` Skip running negpro, apply auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
 
-* `--bw` Skip running negpro, instead: invert, auto-level, and save as grey-scale colorspace.
+* `--bw` Skip running negpro, instead: invert, auto-level, and save as greyscale.
 
-* `--bw-rgb` Skip running negpro, instead: invert, auto-level, and save in RGB colorspace.
+* `--bw-rgb` Skip running negpro, instead: invert and auto-level (like `--bw` but keeps RGB channels).
 
 * `--gamma1` Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma.
 
