@@ -103,7 +103,7 @@ Here's a quick summary of scanning with TLXClientDemo:
 * "Original Height and Width"
 * "Other Options": **uncheck everything** except "Use Scratch Removal" if you enabled that earlier
 * "Type of Save Operation" : "To Client Memory"
-* "Planar" (this is important!) either with or without "Add File Header"
+* "Planar" (this is important!) with "Add File Header" enabled (recommended — allows automatic dimension detection, even with custom sizing)
 * Click "OK"
 
 7) Once this process completes you will now have a `C:\Temp` full of 16-bit Planar Raw files ready to be processed, if you are using a VM to run Windows XP you would then copy those files to a directory on your host machine for further processing.
@@ -145,8 +145,6 @@ Here are some options you can run:
 
 * `--output-dir [dir]`  Specify a different output subdirectory rather than "out".
 
-* `--dimensions [width]x[height]` Specify a non-standard image size if you adjust the framing within TLXClient.
-
 * `--e6` Skip running negpro, apply auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
 
 * `--bw` Skip running negpro, instead: invert, auto-level, and save as grey-scale colorspace.
@@ -154,6 +152,8 @@ Here are some options you can run:
 * `--bw-rgb` Skip running negpro, instead: invert, auto-level, and save in RGB colorspace.
 
 * `--gamma1` Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma.
+
+* `--dimensions [width]x[height]` Manually specify pixel dimensions for headerless raw files (e.g. "--dimensions 4000x2000"). Not needed when "Add File Header" is enabled in TLXClientDemo as dimensions are read from the header automatically. Also not needed if your headerless files did not use custom sizing (eg you aren't doing half-frame or XPan scans). Deprecated: save files with "Add File Header" selected.
 
 * `--no-negfix` Deprecated alias for `--no-invert`.
 
