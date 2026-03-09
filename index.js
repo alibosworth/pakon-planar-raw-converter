@@ -182,20 +182,16 @@ function convertRawFilesToTiff (data) {
   }
 
   renderConvertProgress();
-  var conversionPromises = [];
 
-  items.forEach(function(item, index) {
-     var promise = convertRawToTiff(item, data[item].size);
-     conversionPromises.push(promise);
-     promise.then(function(result) {
-       convertDone[index] = true;
-       renderConvertProgress();
-       return result;
-     }).catch(function(error) {
-       exitWithError("Error converting a file from a raw to a tiff", item);
-     });
+  var promises = items.map(function(item, index) {
+    return convertRawToTiff(item, data[item].size).then(function(result) {
+      convertDone[index] = true;
+      renderConvertProgress();
+      return result;
+    });
   });
-  return Promise.all(conversionPromises);
+
+  return Promise.all(promises);
 }
 
 function convertRawToTiff (name, sizeParameter) {
