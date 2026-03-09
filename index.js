@@ -30,7 +30,7 @@ program
   .option('--bw', 'Skip negative inversion, instead: invert, auto-level, and save as greyscale')
   .option('--bw-rgb', 'Skip negative inversion, instead: invert and auto-level (like --bw but keeps RGB channels)')
   .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing one across all files')
-  .option('--keep-tiffs', 'Keep the intermediate tiff files instead of deleting them after inversion')
+  .option('--keep-intermediate-tiffs', 'Keep the intermediate tiff files instead of deleting them after inversion')
   .option('--gamma1', 'Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma')
   .parse(process.argv);
 
@@ -46,7 +46,7 @@ var tiffDir;
 if (noInvert) {
   // When skipping inversion, tiffs are the final output — put them in the output dir
   tiffDir = program.outputDir;
-} else if (program.keepTiffs) {
+} else if (program.keepIntermediateTiffs) {
   // Keep tiffs in a "tiffs" subdirectory
   tiffDir = "tiffs";
 } else {
@@ -90,16 +90,16 @@ if (noInvert) {
     } else {
       adjustTifsWithNegpro(tifs).then(function(convertedFiles) {
         process.stdout.write("\n");
-        // Clean up temp tiff directory unless --keep-tiffs
-        if (!program.keepTiffs) {
+        // Clean up temp tiff directory unless --keep-intermediate-tiffs
+        if (!program.keepIntermediateTiffs) {
           tifs.forEach(function(tif) {
             try { fs.unlinkSync(tif); } catch (e) {}
           });
           try { fs.rmdirSync(tiffDir); } catch (e) {}
-          console.log("Deleted temporary tiffs, use --keep-tiffs to disable deleting.");
+          console.log("Deleted temporary tiffs, use --keep-intermediate-tiffs to disable deleting.");
         }
         console.log(`Done. ${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as processed TIFF.`);
-        if (program.keepTiffs) {
+        if (program.keepIntermediateTiffs) {
           console.log(`Intermediate tiff files kept in '${tiffDir}'.`);
         }
       });

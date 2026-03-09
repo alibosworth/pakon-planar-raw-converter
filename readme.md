@@ -139,7 +139,7 @@ Here are some options you can run:
 
 * `--no-invert` Don't run negpro.  This will leave you with TIFFs that look dark and orange but you can use other tools to process them such as [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  If you use this option the raw TIFF files will be placed in the output directory.
 
-* `--keep-tiffs` Keep the intermediate TIFF files in a "tiffs" subdirectory instead of deleting them after inversion.
+* `--keep-intermediate-tiffs` Keep the intermediate TIFF files in a "tiffs" subdirectory instead of deleting them after inversion.
 
 * `--per-image-balancing` Compute a separate inversion profile for each image instead of sharing one across all files. By default, all images are analysed together to produce a shared profile for more consistent results across a roll.
 
