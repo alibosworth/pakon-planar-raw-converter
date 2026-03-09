@@ -22,6 +22,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Copy readme into docs for embedding
+        run: cp readme.md docs/_readme.md
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
