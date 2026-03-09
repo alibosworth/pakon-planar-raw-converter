@@ -1,0 +1,82 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  padding: 5%;
+  color: #555;
+}
+
+body a {
+  color: #0099cc;
+}
+
+figure h4 {
+  margin-bottom: .5em;
+}
+
+figure img {
+  display: inline-block;
+  max-width: 100%;
+}
+
+figure img + figcaption {
+  margin-top: .5em;
+}
+
+.container {
+  margin: 0 auto;
+}
+
+.highlight-issue {
+  max-width: 1200px;
+}
+
+.highlight-issue figure {
+  margin: 5em 0;
+}
+
+.container.comparison {
+  text-align: center;
+}
+
+ul.comparison-table {
+  list-style: none;
+  margin: 0;
+  margin-top: 2em;
+  padding: 0;
+  text-align: center;
+}
+
+ul.comparison-table li {
+  margin-bottom: .5em;
+}
+
+ul.comparison-table li figure {
+  margin: 0;
+  font-size: 13px;
+}
+
+ul.comparison-table li figure p {
+  margin-top: .5em;
+}
+
+@media screen and (min-width: 1000px) {
+  ul.comparison-table li figure {
+    display: inline-block;
+    width: 400px;
+  }
+  ul.comparison-table li figure:first-child {
+    margin-right: 1%;
+    text-align: right;
+  }
+  ul.comparison-table li figure:last-child {
+    margin-left: 1%;
+    text-align: left;
+  }
+}
+
+code {
+  background: rgba(0,0,0,0.04);
+  padding: .02em;
+}
