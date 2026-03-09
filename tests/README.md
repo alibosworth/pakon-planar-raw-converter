@@ -35,3 +35,10 @@ node ../../index.js --bw-rgb --output-dir ../reference/bw-rgb
 
 - `in/06.raw` — 3000x2000 base 16 with 16-byte header (36000016 bytes)
 - `in/20180527_01_38.raw` — 2250x1500 base 8 with 16-byte header (20250016 bytes)
+
+## TODO: tests to add
+
+- Headerless raw files (exported from TLXClientDemo without "Add File Header") — need actual files from TLXCD
+- `--dimensions` flag with headerless files
+- Custom dimensions (e.g. xpan) — files with non-standard framing from TLXClientDemo
+- 4-channel (RGBI/IR) raw files, if/when available

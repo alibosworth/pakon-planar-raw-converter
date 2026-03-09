@@ -11,27 +11,27 @@ var pkg = require('./package.json');
 
 var OUTPUT_DIR = "out";
 
-var BYTE_SIZE_TO_DIMENSIONS = { // A map of file size to the size value base to Convert's "size" parameter
+var BYTE_SIZE_TO_DIMENSIONS = { // Fallback map of file size to dimensions for headerless files
   "36000000": "3000x2000",     // "Base 16"
-  "36000016": "3000x2000+16",  // "Base 16" exported with header
   "20250000": "2250x1500",     // "Base 8"
-  "20250016": "2250x1500+16",  // "Base 8" exported with header
-  "9000000" : "1500x1000",      // "Base 4"
-  "9000016" : "1500x1000+16"   // "Base 4" exported with header
+  "9000000" : "1500x1000"      // "Base 4"
 };
+
+var HEADER_SIZE = 16;
+var BYTES_PER_CHANNEL = 2; // 16-bit
 
 program
   .version(pkg.version)
   .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
   .option('--no-invert', 'Skip negative inversion, leaving you with raw .tiff files for further processing with another tool')
-  .option('--no-negfix', '[deprecated: use --no-invert] Skip negative inversion')
-  .option('--dimensions [width]x[height]', 'Manually specify pixel dimensions of raw file (useful for xpan, etc) format like "3000x2000"')
   .option('--e6', 'Skip negative inversion, apply auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo')
   .option('--bw', 'Skip negative inversion, instead: invert, auto-level, and save in grey-scale colorspace')
   .option('--bw-rgb', 'Skip negative inversion, instead: invert, auto-level, and save in RGB colorspace')
   .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing one across all files')
   .option('--keep-tiffs', 'Keep the intermediate tiff files instead of deleting them after inversion')
   .option('--gamma1', 'Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma')
+  .option('--no-negfix', '[deprecated: use --no-invert] Skip negative inversion')
+  .option('--dimensions [width]x[height]', '[deprecated: save files with "Add File Header" selected] Manually specify pixel dimensions for headerless raw files (e.g. "3000x2000"). Not needed when "Add File Header" is enabled in TLXClientDemo.  Also not needed if your headerless files did not use custom sizing (eg you aren\'t doing half-frame or XPan scans)') 
   .parse(process.argv);
 
 // Handle deprecated --no-negfix flag
@@ -71,8 +71,8 @@ if (noInvert) {
   }
 
   var rawFiles = scanDirectoryForFiles();
-  var usableRawFilesWithSizeData = checkRawFileSizes(rawFiles);
-  convertRawFilesToTiff(usableRawFilesWithSizeData).then(function(tifs){
+  var usableRawFiles = checkRawFiles(rawFiles);
+  convertRawFilesToTiff(usableRawFiles).then(function(tifs){
     process.stdout.write("\n");
 
     if (noInvert) {
@@ -118,47 +118,97 @@ function scanDirectoryForFiles () {
   }
 }
 
-function checkRawFileSizes(rawFiles){
+function tryReadHeader(filePath) {
+  var fd = fs.openSync(filePath, 'r');
+  var headerBuf = Buffer.alloc(HEADER_SIZE);
+  var bytesRead = fs.readSync(fd, headerBuf, 0, HEADER_SIZE, 0);
+  fs.closeSync(fd);
+
+  if (bytesRead < HEADER_SIZE) return null;
+
+  var headerSize = headerBuf.readUInt32LE(0);
+  var width = headerBuf.readUInt32LE(4);
+  var height = headerBuf.readUInt32LE(8);
+  var bpp = headerBuf.readUInt32LE(12);
+
+  // Validate: header size must be 16, dimensions must be reasonable,
+  // and bpp must be a multiple of 16 (16-bit per channel)
+  if (headerSize !== HEADER_SIZE) return null;
+  if (width === 0 || height === 0 || width > 100000 || height > 100000) return null;
+  if (bpp % 16 !== 0 || bpp === 0) return null;
+
+  var channels = bpp / 16;
+  var expectedPixelBytes = width * height * channels * BYTES_PER_CHANNEL;
+  var fileSize = fs.statSync(filePath).size;
+  if (fileSize !== HEADER_SIZE + expectedPixelBytes) return null;
+
+  return { width: width, height: height, channels: channels, headerOffset: HEADER_SIZE };
+}
+
+function checkRawFiles(rawFiles){
   var currentDir = process.cwd();
   var data = {};
   var badFiles = [];
   rawFiles.forEach(function(rawFile){
     var filePath = currentDir + "/" + rawFile;
     var sizeInBytes = fs.statSync(filePath).size;
-    var dimensionsForConvert;
-    if (program.dimensions && program.dimensions.split("x").length === 2) {
-      // Manually specified image dimensions, but let's confirm
+    var fileInfo = null;
+
+    // 1. Try reading header from the file
+    var header = tryReadHeader(filePath);
+    if (header) {
+      fileInfo = {
+        width: header.width,
+        height: header.height,
+        channels: header.channels,
+        headerOffset: header.headerOffset
+      };
+    }
+
+    // 2. Fall back to --dimensions flag
+    if (!fileInfo && program.dimensions && program.dimensions.split("x").length === 2) {
       var splitDimensions = program.dimensions.split("x"),
           width = parseInt(splitDimensions[0], 10),
           height = parseInt(splitDimensions[1], 10);
+      var channels = 3;
+      var expectedPixelBytes = width * height * channels * BYTES_PER_CHANNEL;
 
-      if (sizeInBytes / (width * height) === 6) {
-        dimensionsForConvert = `${width}x${height}`;
-      } else if ((sizeInBytes - 16) / (width * height) === 6) {
-        dimensionsForConvert = `${width}x${height}+16`;
+      if (sizeInBytes === expectedPixelBytes) {
+        fileInfo = { width: width, height: height, channels: channels, headerOffset: 0 };
+      } else if (sizeInBytes === HEADER_SIZE + expectedPixelBytes) {
+        fileInfo = { width: width, height: height, channels: channels, headerOffset: HEADER_SIZE };
       }
-
-    } else {
-      dimensionsForConvert = BYTE_SIZE_TO_DIMENSIONS[sizeInBytes.toString()];
     }
 
-    if (!dimensionsForConvert) {
+    // 3. Fall back to size lookup table (headerless files only)
+    if (!fileInfo) {
+      var dims = BYTE_SIZE_TO_DIMENSIONS[sizeInBytes.toString()];
+      if (dims) {
+        var parts = dims.split("x");
+        fileInfo = {
+          width: parseInt(parts[0], 10),
+          height: parseInt(parts[1], 10),
+          channels: 3,
+          headerOffset: 0
+        };
+      }
+    }
+
+    if (!fileInfo) {
       badFiles.push(rawFile);
-      console.error(`${rawFile} is the wrong size - please export via TLXClientDemo in "Planar" mode at "Original height and width" (or specify dimensions via --dimensions option)`);
+      console.error(`${rawFile} is not recognized - please export via TLXClientDemo in "SaveToMemory -> Planar" with "Add File Header" enabled (or specify dimensions via --dimensions option)`);
     } else {
-      data[rawFile] = {
-        size: dimensionsForConvert
-      };
+      data[rawFile] = fileInfo;
     }
   });
 
   var validFileCount = Object.keys(data).length;
   if (validFileCount === 0) {
-    exitWithError("Sorry, no .raw files in the current directory are the correct size.");
+    exitWithError("Sorry, no .raw files in the current directory could be read.");
   } else if (validFileCount === rawFiles.length) {
-    console.log(`All ${validFileCount} files in the current directory are a correct size...`);
+    console.log(`All ${validFileCount} files are valid...`);
   } else {
-    console.log(`${validFileCount} files will be converted but ${rawFiles.length-validFileCount} (${badFiles.join(",")}) ${badFiles.length === 1 ? "is" : "are"} the wrong size...`);
+    console.log(`${validFileCount} files will be converted but ${rawFiles.length-validFileCount} (${badFiles.join(",")}) ${badFiles.length === 1 ? "is" : "are"} not recognized...`);
   }
 
   return data;
@@ -184,7 +234,7 @@ function convertRawFilesToTiff (data) {
   renderConvertProgress();
 
   var promises = items.map(function(item, index) {
-    return convertRawToTiff(item, data[item].size).then(function(result) {
+    return convertRawToTiff(item, data[item]).then(function(result) {
       convertDone[index] = true;
       renderConvertProgress();
       return result;
@@ -194,7 +244,7 @@ function convertRawFilesToTiff (data) {
   return Promise.all(promises);
 }
 
-function convertRawToTiff (name, sizeParameter) {
+function convertRawToTiff (name, fileInfo) {
   var baseName = path.basename(name, ".raw");
   var destinationFile = path.join(tiffDir, `${baseName}.tif`);
 
@@ -207,7 +257,10 @@ function convertRawToTiff (name, sizeParameter) {
     var worker = new Worker(path.join(__dirname, 'lib', 'convert-worker.js'), {
       workerData: {
         name: path.resolve(name),
-        sizeParameter: sizeParameter,
+        width: fileInfo.width,
+        height: fileInfo.height,
+        channels: fileInfo.channels,
+        headerOffset: fileInfo.headerOffset,
         destinationFile: path.resolve(destinationFile),
         applyGamma: !program.gamma1,
         mode: mode
