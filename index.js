@@ -9,6 +9,8 @@ var negpro = require('negpro');
 var program = require('commander');
 var pkg = require('./package.json');
 
+console.log(`pprc v${pkg.version}`);
+
 var OUTPUT_DIR = "out";
 
 var BYTE_SIZE_TO_DIMENSIONS = { // Fallback map of file size to dimensions for headerless files
