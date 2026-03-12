@@ -123,7 +123,7 @@ if (noInvert) {
         }
         if (convertedFiles.rejectedFramesEvent) {
           var evt = convertedFiles.rejectedFramesEvent;
-          console.log(`\nNote: ${evt.rejected.length} of ${evt.total} frames excluded from color balancing due to unusual content:`);
+          console.log(`\nNote: ${evt.rejected.length} of ${evt.total} frames were not used when calculating shared color balance due to differing color characteristics:`);
           evt.rejected.forEach(function(filePath) {
             console.log(`  ${path.basename(filePath)}`);
           });

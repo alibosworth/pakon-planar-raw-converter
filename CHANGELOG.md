@@ -5,6 +5,7 @@ Large update which brings simplified installation, faster speeds, better default
 - By default image analysis is averaged across all files in a batch and then applied to every image. This leads to more consistent images frame to frame.  You can opt back into the old approach where every image is analyzed individually with `--per-image-balancing`
 - By default intermediate tiffs are deleted, leaving you just with your original .raw files and the output dir of inverted tiffs.  If for whatever reason you want the intermediate tiffs to remain you can pass `--keep-intermediate-tiffs`
 
+
 negfix8 has been replaced with my own new tool called [negpro](https://github.com/alibosworth/negpro) which is based on negfix8's core inversion process but brings improvements:
 
 - no ImageMagick dependency to ease installation
@@ -13,8 +14,19 @@ negfix8 has been replaced with my own new tool called [negpro](https://github.co
 - customizable tuning of both light and dark clip percentage (rather than just general contrast stretch on/off)
 - Allows persistent global configuration of options so you can save your preferences to be used automatically
 - Includes a [web based implementation](https://negpro.pages.dev/) for immediate inversion of scans without any installation required
+- When analyzing a batch of images and producing a shared inversion profile, images that are outliers and are 
+likely to skew the color balance are rejected
 
 Additionally PPRC will check for headers on the TLXClientDemo .raw files and if present use the dimension information within them.  This means that as long as you enable "Add File Headers" in TLXClientDemo when saving files, you will never need to pass `--dimensions` when you are scanning XPan or half-frame images.
+
+New options
+
+--dir option — process raw files from a specified directory
+--no-frame-rejection — disable outlier frame rejection
+
+Renamed options
+
+--no-invert replacing --no-negfix
 
 # 0.1.0
 
