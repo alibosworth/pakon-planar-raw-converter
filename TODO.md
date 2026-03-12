@@ -6,5 +6,8 @@
 - [ ] Split index.js into smaller files
 - [ ] Update commander from v2 to latest (enables addHelpText and other modern features)
 - [ ] Update docs with what pprc is NOT
+- [ ] Add update notifications via [update-notifier](https://www.npmjs.com/package/update-notifier)
+- [ ] Explore TIFF compression options for output files
+- [ ] If negpro global config (~/.negpro/config.json) influences settings, show the user a message indicating which settings are being used from their config
 
 ## Completed
