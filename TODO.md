@@ -9,5 +9,6 @@
 - [ ] Add update notifications via [update-notifier](https://www.npmjs.com/package/update-notifier)
 - [ ] Explore TIFF compression options for output files
 - [ ] If negpro global config (~/.negpro/config.json) influences settings, show the user a message indicating which settings are being used from their config
+- [ ] Fix deprecated dependency warnings: update glob (v7 has security vulnerabilities), replace inflight (memory leak, no longer supported)
 
 ## Completed
