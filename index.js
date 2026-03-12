@@ -31,7 +31,7 @@ program
   .option('--bw', 'Skip negative inversion, instead: invert, auto-level, and save in grey-scale colorspace')
   .option('--bw-rgb', 'Skip negative inversion, instead: invert, auto-level, and save in RGB colorspace')
   .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing one across all files')
-  .option('--keep-tiffs', 'Keep the intermediate tiff files instead of deleting them after inversion')
+  .option('--keep-intermediate-tiffs', 'Keep the intermediate tiff files instead of deleting them after inversion')
   .option('--gamma1', 'Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma')
   .option('--no-negfix', '[deprecated: use --no-invert] Skip negative inversion')
   .option('--dimensions [width]x[height]', '[deprecated: save files with "Add File Header" selected] Manually specify pixel dimensions for headerless raw files (e.g. "3000x2000"). Not needed when "Add File Header" is enabled in TLXClientDemo.  Also not needed if your headerless files did not use custom sizing (eg you aren\'t doing half-frame or XPan scans)') 
@@ -62,7 +62,7 @@ if (program.dir) {
 if (noInvert) {
   // When skipping inversion, tiffs are the final output — put them in the output dir
   tiffDir = outputDir;
-} else if (program.keepTiffs) {
+} else if (program.keepIntermediateTiffs) {
   tiffDir = program.dir
     ? path.join(parentDir, dirBaseName + "_pprc_tiffs")
     : "tiffs";
@@ -109,15 +109,15 @@ if (noInvert) {
       adjustTifsWithNegpro(tifs).then(function(convertedFiles) {
         process.stdout.write("\n");
         // Clean up temp tiff directory unless --keep-tiffs
-        if (!program.keepTiffs) {
+        if (!program.keepIntermediateTiffs) {
           tifs.forEach(function(tif) {
             try { fs.unlinkSync(tif); } catch (e) {}
           });
           try { fs.rmdirSync(tiffDir); } catch (e) {}
-          console.log("Deleted temporary tiffs, use --keep-tiffs to disable deleting.");
+          console.log("Deleted temporary tiffs, use --keep-intermediate-tiffs to disable deleting.");
         }
         console.log(`Done. ${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
-        if (program.keepTiffs) {
+        if (program.keepIntermediateTiffs) {
           console.log(`Intermediate tiff files kept in '${tiffDir}'.`);
         }
       });
