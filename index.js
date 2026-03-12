@@ -24,7 +24,8 @@ var BYTES_PER_CHANNEL = 2; // 16-bit
 
 program
   .version(pkg.version)
-  .option('--output-dir [dir]', `Override the default the output sub-directory of "${OUTPUT_DIR}"`, OUTPUT_DIR)
+  .option('--dir [dir]', 'Directory containing .raw files to process (default: current directory)')
+  .option('--output-dir [dir]', `Override the default output directory name "${OUTPUT_DIR}"`, OUTPUT_DIR)
   .option('--no-invert', 'Skip negative inversion, leaving you with raw .tiff files for further processing with another tool')
   .option('--e6', 'Skip negative inversion, apply auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo')
   .option('--bw', 'Skip negative inversion, instead: invert, auto-level, and save in grey-scale colorspace')
@@ -43,28 +44,43 @@ if (program.negfix === false) {
 }
 
 var noInvert = program.invert === false || program.e6 || program.bw || program.bwRgb;
-var tiffDir;
+
+// Resolve input directory and sibling output paths
+var inputDir = program.dir ? path.resolve(program.dir) : process.cwd();
+var parentDir, dirBaseName, outputDir, tiffDir;
+
+if (program.dir) {
+  parentDir = path.dirname(inputDir);
+  dirBaseName = path.basename(inputDir);
+  outputDir = program.outputDir !== OUTPUT_DIR
+    ? program.outputDir
+    : path.join(parentDir, dirBaseName + "_pprc_out");
+} else {
+  outputDir = program.outputDir;
+}
 
 if (noInvert) {
   // When skipping inversion, tiffs are the final output — put them in the output dir
-  tiffDir = program.outputDir;
+  tiffDir = outputDir;
 } else if (program.keepTiffs) {
-  // Keep tiffs in a "tiffs" subdirectory
-  tiffDir = "tiffs";
+  tiffDir = program.dir
+    ? path.join(parentDir, dirBaseName + "_pprc_tiffs")
+    : "tiffs";
 } else {
-  // Temp dir that gets cleaned up after inversion
-  tiffDir = "temp_tiffs_" + Date.now();
+  tiffDir = program.dir
+    ? path.join(parentDir, dirBaseName + "_pprc_temp_tiffs_" + Date.now())
+    : "temp_tiffs_" + Date.now();
 }
 
 // Check output dir for existing tiffs
 (function() {
-  if (fs.existsSync(program.outputDir)){
-    var existingFiles = fs.readdirSync(program.outputDir).filter(function(f) { return /\.tiff?$/i.test(f); });
+  if (fs.existsSync(outputDir)){
+    var existingFiles = fs.readdirSync(outputDir).filter(function(f) { return /\.tiff?$/i.test(f); });
     if (existingFiles.length > 0) {
-      exitWithError(`Output directory '${program.outputDir}' already contains ${existingFiles.length} TIFF file${existingFiles.length === 1 ? '' : 's'}. Please remove or rename it before running again.`);
+      exitWithError(`Output directory '${outputDir}' already contains ${existingFiles.length} TIFF file${existingFiles.length === 1 ? '' : 's'}. Please remove or rename it before running again.`);
     }
   } else if (!noInvert) {
-    fs.mkdirSync(program.outputDir);
+    fs.mkdirSync(outputDir);
   }
 
   // Create the tiff directory
@@ -88,7 +104,7 @@ if (noInvert) {
       } else {
         verb = "raw";
       }
-      console.log(`Done. ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to the '${tiffDir}' subdirectory as a ${verb} TIFF.`);
+      console.log(`Done. ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to '${tiffDir}' as a ${verb} TIFF.`);
     } else {
       adjustTifsWithNegpro(tifs).then(function(convertedFiles) {
         process.stdout.write("\n");
@@ -100,7 +116,7 @@ if (noInvert) {
           try { fs.rmdirSync(tiffDir); } catch (e) {}
           console.log("Deleted temporary tiffs, use --keep-tiffs to disable deleting.");
         }
-        console.log(`Done. ${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to the '${program.outputDir}' subdirectory as processed TIFF.`);
+        console.log(`Done. ${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
         if (program.keepTiffs) {
           console.log(`Intermediate tiff files kept in '${tiffDir}'.`);
         }
@@ -110,12 +126,12 @@ if (noInvert) {
 })();
 
 function scanDirectoryForFiles () {
-  var rawFiles = glob.sync('*.raw', {});
+  var rawFiles = glob.sync('*.raw', { cwd: inputDir });
 
   if (!rawFiles.length) {
-    exitWithError("No .raw files found in the current directory \nPlease run this script from the same directory where you have saved your planar .raw files from TLXClientDemo");
+    exitWithError(`No .raw files found in ${program.dir ? "'" + inputDir + "'" : "the current directory"}\nPlease run this script from the same directory where you have saved your planar .raw files from TLXClientDemo, or use --dir to specify the directory.`);
   } else {
-    console.log(`Found ${rawFiles.length} raw files in current directory...`);
+    console.log(`Found ${rawFiles.length} raw files in ${program.dir ? "'" + inputDir + "'" : "current directory"}...`);
     return rawFiles;
   }
 }
@@ -148,7 +164,7 @@ function tryReadHeader(filePath) {
 }
 
 function checkRawFiles(rawFiles){
-  var currentDir = process.cwd();
+  var currentDir = inputDir;
   var data = {};
   var badFiles = [];
   rawFiles.forEach(function(rawFile){
@@ -258,7 +274,7 @@ function convertRawToTiff (name, fileInfo) {
   return new Promise(function(resolve, reject) {
     var worker = new Worker(path.join(__dirname, 'lib', 'convert-worker.js'), {
       workerData: {
-        name: path.resolve(name),
+        name: path.resolve(inputDir, name),
         width: fileInfo.width,
         height: fileInfo.height,
         channels: fileInfo.channels,
@@ -302,7 +318,7 @@ function adjustTifsWithNegpro(tifs) {
   }
 
   return negpro.processFiles(tifPaths, {
-    outputDir: path.resolve(program.outputDir),
+    outputDir: path.resolve(outputDir),
     perImage: perImage,
     onProgress: function(event) {
       if (perImage) {
