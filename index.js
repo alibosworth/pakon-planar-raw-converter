@@ -2,7 +2,6 @@
 var fs = require( 'fs' );
 var path = require( 'path' );
 var process = require( "process" );
-var glob = require('glob');
 var { Worker } = require('worker_threads');
 var Promise = require("bluebird");
 var negpro = require('negpro');
@@ -135,7 +134,7 @@ if (noInvert) {
 })();
 
 function scanDirectoryForFiles () {
-  var rawFiles = glob.sync('*.raw', { cwd: inputDir });
+  var rawFiles = fs.readdirSync(inputDir).filter(function(f) { return /\.raw$/i.test(f); });
 
   if (!rawFiles.length) {
     exitWithError(`No .raw files found in ${program.dir ? "'" + inputDir + "'" : "the current directory"}\nPlease run this script from the same directory where you have saved your planar .raw files from TLXClientDemo, or use --dir to specify the directory.`);
