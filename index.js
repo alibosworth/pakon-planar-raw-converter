@@ -31,6 +31,7 @@ program
   .option('--bw', 'Skip negative inversion, instead: invert, auto-level, and save in grey-scale colorspace')
   .option('--bw-rgb', 'Skip negative inversion, instead: invert, auto-level, and save in RGB colorspace')
   .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing one across all files')
+  .option('--no-frame-rejection', 'Disable rejection of outlier frames when computing shared inversion profile')
   .option('--keep-intermediate-tiffs', 'Keep the intermediate tiff files instead of deleting them after inversion')
   .option('--gamma1', 'Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma')
   .option('--no-negfix', '[deprecated: use --no-invert] Skip negative inversion')
@@ -119,6 +120,14 @@ if (noInvert) {
         console.log(`Done. ${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
         if (program.keepIntermediateTiffs) {
           console.log(`Intermediate tiff files kept in '${tiffDir}'.`);
+        }
+        if (convertedFiles.rejectedFramesEvent) {
+          var evt = convertedFiles.rejectedFramesEvent;
+          console.log(`\nNote: ${evt.rejected.length} of ${evt.total} frames excluded from color balancing due to unusual content:`);
+          evt.rejected.forEach(function(filePath) {
+            console.log(`  ${path.basename(filePath)}`);
+          });
+          console.log("Use --no-frame-rejection to include all frames in color balancing.");
         }
       });
     }
@@ -292,7 +301,6 @@ function convertRawToTiff (name, fileInfo) {
 }
 
 function adjustTifsWithNegpro(tifs) {
-  var perImage = !!program.perImageBalancing;
   var tifPaths = tifs.map(function(tif) {
     return path.resolve(tif);
   });
@@ -305,23 +313,33 @@ function adjustTifsWithNegpro(tifs) {
     adjustDone.push(false);
   }
 
+  var resolvedPerImage = false;
   var analyzeLabelPrinted = false;
   var invertLabelPrinted = false;
+  var rejectedFramesEvent = null;
 
   function renderProgress(completed) {
     var bar = completed.map(function(done) { return done ? '✓' : '▢'; }).join(' ');
     process.stdout.write(`\r${bar}`);
   }
 
-  if (perImage) {
-    console.log("Inverting tiff files with negpro (per-image balancing)");
-  }
-
-  return negpro.processFiles(tifPaths, {
+  var options = {
     outputDir: path.resolve(outputDir),
-    perImage: perImage,
     onProgress: function(event) {
-      if (perImage) {
+      if (event.type === 'config') {
+        resolvedPerImage = event.config.perImage;
+        if (resolvedPerImage) {
+          console.log("Inverting tiff files with negpro (per-image balancing)");
+        }
+        return;
+      }
+
+      if (event.type === 'frames-rejected') {
+        rejectedFramesEvent = event;
+        return;
+      }
+
+      if (resolvedPerImage) {
         // In per-image mode, analyze+invert are interleaved per file,
         // so just track completion with a single progress bar
         if (event.type === 'done') {
@@ -347,7 +365,19 @@ function adjustTifsWithNegpro(tifs) {
         }
       }
     }
-  }).then(function(results) {
+  };
+
+  // Only pass these options when explicitly set via CLI, so negpro's
+  // own config.json defaults are respected otherwise
+  if (program.perImageBalancing) {
+    options.perImage = true;
+  }
+  if (program.frameRejection === false) {
+    options.rejectOutliers = false;
+  }
+
+  return negpro.processFiles(tifPaths, options).then(function(results) {
+    results.rejectedFramesEvent = rejectedFramesEvent;
     return results;
   });
 }
