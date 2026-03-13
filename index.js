@@ -367,9 +367,9 @@ function adjustTifsWithNegpro(tifs) {
         resolvedPerImage = event.config.perImage;
 
         // Show settings coming from negpro global config
-        var fromConfig = Object.keys(event.sources).filter(function(key) {
+        var fromConfig = event.sources ? Object.keys(event.sources).filter(function(key) {
           return event.sources[key] === 'config';
-        });
+        }) : [];
         if (fromConfig.length > 0 && event.configPath) {
           var lines = ["Using negpro global config (" + event.configPath + "):"];
           fromConfig.forEach(function(key) {
