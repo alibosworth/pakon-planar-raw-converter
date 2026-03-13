@@ -143,6 +143,12 @@ Here are some options you can run:
 
 * `--per-image-balancing` Compute a separate inversion profile for each image instead of sharing one across all files. By default, all images are analysed together to produce a shared profile for more consistent results across a roll.
 
+* `--clip-black <percent>` Clip the darkest N% of pixels to black during contrast stretch (negpro default: 0.1).
+
+* `--clip-white <percent>` Clip the brightest N% of pixels to white during contrast stretch (negpro default: 0.1).
+
+* `--clip <percent>` Shorthand to set both `--clip-black` and `--clip-white` to the same value. For example, `--clip 1` gives more contrast by clipping 1% on each end.
+
 * `--output-dir [dir]`  Specify a different output subdirectory rather than "out".
 
 * `--e6` Skip running negpro, apply auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
