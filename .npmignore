@@ -1,2 +1,4 @@
 tests/
 docs/
+.claude/
+TODO.md
