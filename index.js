@@ -8,9 +8,15 @@ var negpro = require('negpro');
 var program = require('commander');
 var pkg = require('./package.json');
 
-console.log(`pprc v${pkg.version}`);
+var bannerLines = [`   pprc  v${pkg.version}`, '   Pakon Raw → TIFF'];
+var bannerWidth = Math.max(...bannerLines.map(l => l.length)) + 2;
+console.log(`╔${'═'.repeat(bannerWidth)}╗`);
+bannerLines.forEach(l => console.log(`║${l.padEnd(bannerWidth)}║`));
+console.log(`╚${'═'.repeat(bannerWidth)}╝`);
 
 var OUTPUT_DIR = "out";
+
+var STANDARD_DIMENSIONS = ["3000x2000", "2250x1500", "1500x1000"];
 
 var BYTE_SIZE_TO_DIMENSIONS = { // Fallback map of file size to dimensions for headerless files
   "36000000": "3000x2000",     // "Base 16"
@@ -31,6 +37,9 @@ program
   .option('--bw-rgb', 'Skip negative inversion, instead: invert, auto-level, and save in RGB colorspace')
   .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing one across all files')
   .option('--no-frame-rejection', 'Disable rejection of outlier frames when computing shared inversion profile')
+  .option('--clip-black <percent>', 'Clip darkest N% to black during contrast stretch (negpro default: 0.1)')
+  .option('--clip-white <percent>', 'Clip brightest N% to white during contrast stretch (negpro default: 0.1)')
+  .option('--clip <percent>', 'Clip both black and white ends by N% during contrast stretch')
   .option('--keep-intermediate-tiffs', 'Keep the intermediate tiff files instead of deleting them after inversion')
   .option('--gamma1', 'Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma')
   .option('--no-negfix', '[deprecated: use --no-invert] Skip negative inversion')
@@ -88,6 +97,7 @@ if (noInvert) {
     fs.mkdirSync(tiffDir);
   }
 
+  var startTime = Date.now();
   var rawFiles = scanDirectoryForFiles();
   var usableRawFiles = checkRawFiles(rawFiles);
   convertRawFilesToTiff(usableRawFiles).then(function(tifs){
@@ -104,7 +114,7 @@ if (noInvert) {
       } else {
         verb = "raw";
       }
-      console.log(`Done. ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to '${tiffDir}' as a ${verb} TIFF.`);
+      console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s! ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to '${tiffDir}' as ${verb} TIFF.`);
     } else {
       adjustTifsWithNegpro(tifs).then(function(convertedFiles) {
         process.stdout.write("\n");
@@ -116,7 +126,7 @@ if (noInvert) {
           try { fs.rmdirSync(tiffDir); } catch (e) {}
           console.log("Deleted temporary tiffs, use --keep-intermediate-tiffs to disable deleting.");
         }
-        console.log(`Done. ${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
+        console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s! ${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
         if (program.keepIntermediateTiffs) {
           console.log(`Intermediate tiff files kept in '${tiffDir}'.`);
         }
@@ -175,6 +185,7 @@ function checkRawFiles(rawFiles){
   var currentDir = inputDir;
   var data = {};
   var badFiles = [];
+  var dimensionsNeeded = []; // files that actually required --dimensions to resolve
   rawFiles.forEach(function(rawFile){
     var filePath = currentDir + "/" + rawFile;
     var sizeInBytes = fs.statSync(filePath).size;
@@ -201,8 +212,10 @@ function checkRawFiles(rawFiles){
 
       if (sizeInBytes === expectedPixelBytes) {
         fileInfo = { width: width, height: height, channels: channels, headerOffset: 0 };
+        dimensionsNeeded.push(rawFile);
       } else if (sizeInBytes === HEADER_SIZE + expectedPixelBytes) {
         fileInfo = { width: width, height: height, channels: channels, headerOffset: HEADER_SIZE };
+        dimensionsNeeded.push(rawFile);
       }
     }
 
@@ -229,12 +242,36 @@ function checkRawFiles(rawFiles){
   });
 
   var validFileCount = Object.keys(data).length;
+  var nonStandard = Object.keys(data).filter(function(file) {
+    var info = data[file];
+    return STANDARD_DIMENSIONS.indexOf(info.width + "x" + info.height) === -1;
+  });
+
   if (validFileCount === 0) {
     exitWithError("Sorry, no .raw files in the current directory could be read.");
   } else if (validFileCount === rawFiles.length) {
-    console.log(`All ${validFileCount} files are valid...`);
+    var msg = `All ${validFileCount} files are valid`;
+    if (nonStandard.length > 0) {
+      msg += ` - \x1b[3m${nonStandard.length} ${nonStandard.length === 1 ? "file" : "files"} noted to have interesting dimensions\x1b[0m`;
+    }
+    console.log(msg + "...");
   } else {
     console.log(`${validFileCount} files will be converted but ${rawFiles.length-validFileCount} (${badFiles.join(",")}) ${badFiles.length === 1 ? "is" : "are"} not recognized...`);
+  }
+
+  if (nonStandard.length > 0) {
+    nonStandard.forEach(function(file) {
+      var info = data[file];
+      console.log(`  ${file}: ${info.width}x${info.height}`);
+    });
+  }
+
+  if (program.dimensions) {
+    if (dimensionsNeeded.length === 0) {
+      console.log('\x1b[3mTip: --dimensions was not necessary — all files have embedded headers.\x1b[0m');
+    } else {
+      console.log(`\x1b[3mTip: Export with "Add File Header" enabled in TLXClientDemo to avoid needing --dimensions.\x1b[0m`);
+    }
   }
 
   return data;
@@ -243,9 +280,10 @@ function checkRawFiles(rawFiles){
 function convertRawFilesToTiff (data) {
   var label = "Converting raw files to tiff files";
 
-  if (program.gamma1) {
-    label = label + " (without gamma adjustment)";
-  }
+  var qualifiers = [];
+  if (noInvert) qualifiers.push("no inversion");
+  if (program.gamma1) qualifiers.push("without gamma adjustment");
+  if (qualifiers.length) label += " (" + qualifiers.join(", ") + ")";
 
   console.log(label);
 
@@ -253,7 +291,7 @@ function convertRawFilesToTiff (data) {
   var convertDone = items.map(function() { return false; });
 
   function renderConvertProgress() {
-    var bar = convertDone.map(function(done) { return done ? '✓' : '▢'; }).join(' ');
+    var bar = convertDone.map(function(done) { return done ? '▰' : '▱'; }).join(' ');
     process.stdout.write(`\r${bar}`);
   }
 
@@ -318,7 +356,7 @@ function adjustTifsWithNegpro(tifs) {
   var rejectedFramesEvent = null;
 
   function renderProgress(completed) {
-    var bar = completed.map(function(done) { return done ? '✓' : '▢'; }).join(' ');
+    var bar = completed.map(function(done) { return done ? '▰' : '▱'; }).join(' ');
     process.stdout.write(`\r${bar}`);
   }
 
@@ -327,6 +365,19 @@ function adjustTifsWithNegpro(tifs) {
     onProgress: function(event) {
       if (event.type === 'config') {
         resolvedPerImage = event.config.perImage;
+
+        // Show settings coming from negpro global config
+        var fromConfig = Object.keys(event.sources).filter(function(key) {
+          return event.sources[key] === 'config';
+        });
+        if (fromConfig.length > 0 && event.configPath) {
+          var lines = ["Using negpro global config (" + event.configPath + "):"];
+          fromConfig.forEach(function(key) {
+            lines.push("  " + key + ": " + event.config[key]);
+          });
+          console.log(lines.join("\n"));
+        }
+
         if (resolvedPerImage) {
           console.log("Inverting tiff files with negpro (per-image balancing)");
         }
@@ -373,6 +424,16 @@ function adjustTifsWithNegpro(tifs) {
   }
   if (program.frameRejection === false) {
     options.rejectOutliers = false;
+  }
+  if (program.clip !== undefined) {
+    options.clipBlack = parseFloat(program.clip);
+    options.clipWhite = parseFloat(program.clip);
+  }
+  if (program.clipBlack !== undefined) {
+    options.clipBlack = parseFloat(program.clipBlack);
+  }
+  if (program.clipWhite !== undefined) {
+    options.clipWhite = parseFloat(program.clipWhite);
   }
 
   return negpro.processFiles(tifPaths, options).then(function(results) {
