@@ -12,6 +12,7 @@
 - [ ] Group and reorder CLI flags in --help output (e.g. inversion options, output options, deprecated) — may require commander v2→latest upgrade first
 - [ ] Automated test system: run pprc with known input raw files and compare output TIFFs against expected reference files to catch regressions
 - [ ] Clean up temp tiffs on failure: if something goes wrong mid-run, ensure the temp_tiffs directory is removed so it doesn't litter the user's working directory
+- [ ] Figure out if we can identify when the default CS/Clip params are likely to produce poor results and show warnings
 
 ## Completed
 

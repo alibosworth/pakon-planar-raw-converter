@@ -8,11 +8,17 @@ var negpro = require('negpro');
 var program = require('commander');
 var pkg = require('./package.json');
 
-var bannerLines = [`   pprc  v${pkg.version}`, '   Pakon Raw → TIFF'];
+var bannerLines = [
+  `   pprc  v${pkg.version}`,
+  '   Pakon Raw → 16-bit TIFF',
+  '   Inverts images and removes orange mask',
+  '   Run this tool within a folder of .raw files',
+  '   Run pprc --help for options'
+];
 var bannerWidth = Math.max(...bannerLines.map(l => l.length)) + 2;
-console.log(`╔${'═'.repeat(bannerWidth)}╗`);
+console.log(`\x1b[36m╔${'═'.repeat(bannerWidth)}╗`);
 bannerLines.forEach(l => console.log(`║${l.padEnd(bannerWidth)}║`));
-console.log(`╚${'═'.repeat(bannerWidth)}╝`);
+console.log(`╚${'═'.repeat(bannerWidth)}╝\x1b[0m`);
 
 var OUTPUT_DIR = "out";
 
@@ -132,11 +138,28 @@ if (noInvert) {
         }
         if (convertedFiles.rejectedFramesEvent) {
           var evt = convertedFiles.rejectedFramesEvent;
-          console.log(`\nNote: ${evt.rejected.length} of ${evt.total} frames were not used when calculating shared color balance due to differing color characteristics:`);
+          var lines = [`\nℹ️ Note: ${evt.rejected.length} of ${evt.total} frames were not used when calculating shared color balance due to differing color characteristics:`];
           evt.rejected.forEach(function(filePath) {
-            console.log(`  ${path.basename(filePath)}`);
+            lines.push(`  ${path.basename(filePath)}`);
           });
-          console.log("Use --no-frame-rejection to include all frames in color balancing.");
+          lines.push("Use --no-frame-rejection to include all frames in color balancing.");
+          console.log(`\x1b[33m${lines.join('\n')}\x1b[0m`);
+        }
+        if (convertedFiles.processWarnings && convertedFiles.processWarnings.length > 0) {
+          convertedFiles.processWarnings.forEach(function(w) {
+            if (w.code === 'CLIPPING_RISK') {
+              var affected = w.affectedFiles.map(function(f) { return path.basename(f); });
+              var msg;
+              if (affected.length > w.totalFiles * 0.5) {
+                msg = `${affected.length} of ${w.totalFiles} images have narrow density range. Contrast stretch clipping may be too aggressive — consider using --clip 0.01 (or --clip-black / --clip-white individually).`;
+              } else {
+                msg = `${affected.length} image(s) have narrow density range (${affected.join(', ')}). Contrast stretch clipping may be too aggressive for these frames — consider using --clip 0.01 (or --clip-black / --clip-white individually).`;
+              }
+              console.log(`\n\x1b[33m⚠️ Warning: ${msg}\x1b[0m`);
+            } else {
+              console.log(`\n\x1b[33m⚠️ Warning: ${w.message}\x1b[0m`);
+            }
+          });
         }
       });
     }
@@ -354,6 +377,7 @@ function adjustTifsWithNegpro(tifs) {
   var analyzeLabelPrinted = false;
   var invertLabelPrinted = false;
   var rejectedFramesEvent = null;
+  var processWarnings = [];
 
   function renderProgress(completed) {
     var bar = completed.map(function(done) { return done ? '▰' : '▱'; }).join(' ');
@@ -389,6 +413,11 @@ function adjustTifsWithNegpro(tifs) {
         return;
       }
 
+      if (event.type === 'complete') {
+        processWarnings = event.warnings || [];
+        return;
+      }
+
       if (resolvedPerImage) {
         // In per-image mode, analyze+invert are interleaved per file,
         // so just track completion with a single progress bar
@@ -417,6 +446,8 @@ function adjustTifsWithNegpro(tifs) {
     }
   };
 
+  options.callerName = `PPRC v${pkg.version}`;
+
   // Only pass these options when explicitly set via CLI, so negpro's
   // own config.json defaults are respected otherwise
   if (program.perImageBalancing) {
@@ -438,6 +469,7 @@ function adjustTifsWithNegpro(tifs) {
 
   return negpro.processFiles(tifPaths, options).then(function(results) {
     results.rejectedFramesEvent = rejectedFramesEvent;
+    results.processWarnings = processWarnings;
     return results;
   });
 }

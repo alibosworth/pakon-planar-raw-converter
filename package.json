@@ -37,6 +37,6 @@
   "dependencies": {
     "bluebird": "^3.5.1",
     "commander": "^2.12.2",
-    "negpro": "^0.0.3"
+    "negpro": "^0.0.6"
   }
 }
