@@ -5,7 +5,7 @@ var process = require( "process" );
 var { Worker } = require('worker_threads');
 var Promise = require("bluebird");
 var negpro = require('negpro');
-var { Command, Help } = require('commander');
+var { Command, Help, Option } = require('commander');
 var pkg = require('./package.json');
 
 var bannerLines = [
@@ -59,6 +59,8 @@ program
   .option('--no-negfix', '[deprecated: use --no-invert] Skip negative inversion')
   .option('--dimensions [width]x[height]', '[deprecated] Manually specify pixel dimensions for headerless raw files (e.g. "4000x2000")')
   .option('--keep-intermediate-tiffs', 'Keep the intermediate tiff files instead of deleting them')
+  .option('--install-quick-action', 'Install macOS Finder right-click Quick Action for folders', undefined, process.platform === 'darwin')
+  .option('--uninstall-quick-action', 'Remove the macOS Finder Quick Action', undefined, process.platform === 'darwin')
   .option('--examples', 'Show usage examples')
   .version(pkg.version)
   .helpOption('-h, --help', 'Display this help screen')
@@ -91,6 +93,18 @@ program
   .parse(process.argv);
 
 var opts = program.opts();
+
+if (opts.installQuickAction) {
+  var macosService = require('./lib/macos-service');
+  macosService.install();
+  process.exit(0);
+}
+
+if (opts.uninstallQuickAction) {
+  var macosService = require('./lib/macos-service');
+  macosService.uninstall();
+  process.exit(0);
+}
 
 if (opts.examples) {
   console.log(`
@@ -134,6 +148,12 @@ Examples:
 
   Include all frames in color balancing, even outliers:
     pprc --no-frame-rejection
+
+  Install macOS Finder Quick Action — right-click folders to process:
+    pprc --install-quick-action
+
+  Remove the Finder Quick Action:
+    pprc --uninstall-quick-action
 `);
   process.exit(0);
 }
@@ -173,6 +193,18 @@ if (noInvert) {
     : "temp_tiffs_" + Date.now();
 }
 
+// Auto-increment output dir if it already exists (only for default naming)
+var usingDefaultOutputDir = opts.outputDir === OUTPUT_DIR;
+if (usingDefaultOutputDir && fs.existsSync(outputDir)) {
+  var baseOutputDir = outputDir;
+  var n = 2;
+  while (fs.existsSync(outputDir)) {
+    outputDir = baseOutputDir + '_' + n;
+    n++;
+  }
+  console.log(`Previous output exists, using '${path.basename(outputDir)}' instead.`);
+}
+
 // Check output dir for existing tiffs
 (function() {
   if (fs.existsSync(outputDir)){
@@ -206,7 +238,8 @@ if (noInvert) {
       } else {
         verb = "raw";
       }
-      console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s! ${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to '${tiffDir}' as ${verb} TIFF.`);
+      console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
+      console.log(`${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to '${tiffDir}' as ${verb} TIFF.`);
     } else {
       adjustTifsWithNegpro(tifs).then(function(convertedFiles) {
         process.stdout.write("\n");
@@ -218,7 +251,8 @@ if (noInvert) {
           try { fs.rmdirSync(tiffDir); } catch (e) {}
           console.log("Deleted temporary tiffs, use --keep-intermediate-tiffs to disable deleting.");
         }
-        console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s! ${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
+        console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
+        console.log(`${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
         if (opts.keepIntermediateTiffs) {
           console.log(`Intermediate tiff files kept in '${tiffDir}'.`);
         }
