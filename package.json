@@ -29,6 +29,7 @@
     "publish-alpha": "npm publish --tag alpha",
     "publish-beta": "npm publish --tag beta"
   },
+  "type": "module",
   "main": "index.js",
   "author": "Ali Bosworth <ali@alibosworth.com> (https://alibosworth.com/)",
   "license": "GPL-3.0",
