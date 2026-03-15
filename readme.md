@@ -10,6 +10,9 @@ Technically, PSI itself can also export raw files, but they suffer from being on
 
 When scanning via TLX you can scan in any resolution ("base").  When saving ensure that none of the checkboxes in the "other options" section of the save dialog are checked except for "use scratch removal" if you have scanned with scratch removal enabled.
 
+## Video of most basic usage:
+<video src="https://github.com/user-attachments/assets/6f8b6601-1d6f-423b-b877-66d294ad9956" width="100%" controls></video>
+
 ---------------------
 
 ## FAQ
