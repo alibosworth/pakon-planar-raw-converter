@@ -1,6 +1,6 @@
 {
   "name": "pakon-planar-raw-converter",
-  "version": "1.0.0-beta.20260315-01",
+  "version": "1.0.0-beta.20260315-02",
   "description": "A script to convert Pakon F-135+ Planar RAW scans from TLXClientDemo into usable files",
   "keywords": [
     "kodak",
@@ -23,6 +23,7 @@
     "images"
   ],
   "scripts": {
+    "postinstall": "node scripts/postinstall.js",
     "run-docs-site": "cp README.md docs/_readme.md && cd docs && bundle exec jekyll serve",
     "test": "node tests/test.js",
     "publish-beta": "npm publish --tag beta"
