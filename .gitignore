@@ -8,3 +8,4 @@ docs/_readme.md
 .private
 tests/out/
 .claude/
+.private/
