@@ -5,7 +5,7 @@ var process = require( "process" );
 var { Worker } = require('worker_threads');
 var Promise = require("bluebird");
 var negpro = require('negpro');
-var program = require('commander');
+var { Command, Help } = require('commander');
 var pkg = require('./package.json');
 
 var bannerLines = [
@@ -33,56 +33,142 @@ var BYTE_SIZE_TO_DIMENSIONS = { // Fallback map of file size to dimensions for h
 var HEADER_SIZE = 16;
 var BYTES_PER_CHANNEL = 2; // 16-bit
 
+var GROUP_HEADERS = {
+  '--dir': 'Input/Output:',
+  '--no-invert': 'Processing Mode:',
+  '--per-image-balancing': 'Tuning:',
+  '--no-negfix': 'Deprecated:',
+  '--keep-intermediate-tiffs': 'Utility:',
+};
+
+var program = new Command();
 program
-  .version(pkg.version)
+  .name('pprc')
   .option('--dir [dir]', 'Directory containing .raw files to process (default: current directory)')
-  .option('--output-dir [dir]', `Override the default output directory name "${OUTPUT_DIR}"`, OUTPUT_DIR)
-  .option('--no-invert', 'Skip negative inversion, leaving you with raw .tiff files for further processing with another tool')
-  .option('--e6', 'Skip negative inversion, apply auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo')
-  .option('--bw', 'Skip negative inversion, instead: invert, auto-level, and save in grey-scale colorspace')
-  .option('--bw-rgb', 'Skip negative inversion, instead: invert, auto-level, and save in RGB colorspace')
-  .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing one across all files')
-  .option('--no-frame-rejection', 'Disable rejection of outlier frames when computing shared inversion profile')
+  .option('--output-dir [dir]', `Specify the output directory name`, OUTPUT_DIR)
+  .option('--no-invert', 'Skip negative inversion, output raw tiffs for processing with another tool')
+  .option('--e6', 'Skip negative inversion, apply auto-level (for "Film Color: Positive" scans)')
+  .option('--bw', 'Invert, auto-level, and save in grey-scale colorspace')
+  .option('--bw-rgb', 'Invert, auto-level, and save in RGB colorspace')
+  .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing')
+  .option('--no-frame-rejection', 'Disable outlier frame rejection when computing shared inversion profile')
   .option('--clip-black <percent>', 'Clip darkest N% to black during contrast stretch (negpro default: 0.1)')
   .option('--clip-white <percent>', 'Clip brightest N% to white during contrast stretch (negpro default: 0.1)')
   .option('--clip <percent>', 'Clip both black and white ends by N% during contrast stretch')
-  .option('--keep-intermediate-tiffs', 'Keep the intermediate tiff files instead of deleting them after inversion')
-  .option('--gamma1', 'Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma')
+  .option('--gamma1', 'Skip 2.2 gamma correction, leaving the raw file linear (gamma 1.0)')
   .option('--no-negfix', '[deprecated: use --no-invert] Skip negative inversion')
-  .option('--dimensions [width]x[height]', '[deprecated: save files with "Add File Header" selected] Manually specify pixel dimensions for headerless raw files (e.g. "3000x2000"). Not needed when "Add File Header" is enabled in TLXClientDemo.  Also not needed if your headerless files did not use custom sizing (eg you aren\'t doing half-frame or XPan scans)') 
+  .option('--dimensions [width]x[height]', '[deprecated] Manually specify pixel dimensions for headerless raw files (e.g. "4000x2000")')
+  .option('--keep-intermediate-tiffs', 'Keep the intermediate tiff files instead of deleting them')
+  .option('--examples', 'Show usage examples')
+  .version(pkg.version)
+  .helpOption('-h, --help', 'Display this help screen')
+  .configureHelp({
+    formatHelp(cmd, helper) {
+      var defaultFormat = Help.prototype.formatHelp.call(helper, cmd, helper);
+      var lines = defaultFormat.split('\n');
+      var result = [];
+      var printedHeaders = {};
+      for (var line of lines) {
+        var trimmed = line.trim();
+        for (var flag of Object.keys(GROUP_HEADERS)) {
+          if (trimmed.startsWith(flag)) {
+            var header = GROUP_HEADERS[flag];
+            if (!printedHeaders[header]) {
+              result.push('');
+              result.push(`  ${header}`);
+              printedHeaders[header] = true;
+            }
+            break;
+          }
+        }
+        result.push(line);
+      }
+      return result.join('\n');
+    },
+  })
+  .addHelpText('before', 'Converts 16-bit Planar Raw files from TLXClientDemo into inverted TIFF images\nwith the orange mask removed. Process a whole roll together for best results.\nIn TLXClientDemo, save with "Planar" format and "Add File Header" enabled to \nproduce .raw files to process.\n')
+  .addHelpText('after', '\nRun pprc --examples for usage examples.')
   .parse(process.argv);
 
-// Handle deprecated --no-negfix flag
-if (program.negfix === false) {
-  console.warn("Warning: --no-negfix is deprecated, use --no-invert instead");
-  program.invert = false;
+var opts = program.opts();
+
+if (opts.examples) {
+  console.log(`
+Examples:
+
+  Basic usage — run from a folder of .raw files (output: out/):
+    pprc
+
+  Process a specific directory of .raw files (output: /path/to/raw/files_pprc_out/):
+    pprc --dir /path/to/raw/files
+
+  Process a directory, writing output to a specific folder:
+    pprc --dir /path/to/raw/files --output-dir /path/to/output
+
+  Skip inversion — useful if you want to invert with another tool:
+    pprc --no-invert
+
+  Process slide film (E6) scans — no inversion needed, just auto-levels:
+    pprc --e6
+
+  Process black and white film — invert and auto-level in greyscale:
+    pprc --bw
+
+  Per-image balancing — useful when frames on a roll have very different exposures:
+    pprc --per-image-balancing
+
+  Reduce contrast stretch clipping — for rolls with low-density frames:
+    pprc --clip 0.01
+
+  Aggressive clipping for a punchier, minilab-style look:
+    pprc --clip 2.5
+
+  Clip shadows and highlights separately:
+    pprc --clip-black 0.5 --clip-white 0.1
+
+  Keep intermediate tiff files for inspection or reprocessing:
+    pprc --keep-intermediate-tiffs
+
+  Skip gamma correction — output linear data for manual processing:
+    pprc --gamma1
+
+  Include all frames in color balancing, even outliers:
+    pprc --no-frame-rejection
+`);
+  process.exit(0);
 }
 
-var noInvert = program.invert === false || program.e6 || program.bw || program.bwRgb;
+// Handle deprecated --no-negfix flag
+if (opts.negfix === false) {
+  console.warn("Warning: --no-negfix is deprecated, use --no-invert instead");
+  opts.invert = false;
+}
+
+var noInvert = opts.invert === false || opts.e6 || opts.bw || opts.bwRgb;
 
 // Resolve input directory and sibling output paths
-var inputDir = program.dir ? path.resolve(program.dir) : process.cwd();
+var inputDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
 var parentDir, dirBaseName, outputDir, tiffDir;
 
-if (program.dir) {
+if (opts.dir) {
   parentDir = path.dirname(inputDir);
   dirBaseName = path.basename(inputDir);
-  outputDir = program.outputDir !== OUTPUT_DIR
-    ? program.outputDir
+  outputDir = opts.outputDir !== OUTPUT_DIR
+    ? opts.outputDir
     : path.join(parentDir, dirBaseName + "_pprc_out");
 } else {
-  outputDir = program.outputDir;
+  outputDir = opts.outputDir;
 }
 
 if (noInvert) {
   // When skipping inversion, tiffs are the final output — put them in the output dir
   tiffDir = outputDir;
-} else if (program.keepIntermediateTiffs) {
-  tiffDir = program.dir
+} else if (opts.keepIntermediateTiffs) {
+  tiffDir = opts.dir
     ? path.join(parentDir, dirBaseName + "_pprc_tiffs")
     : "tiffs";
 } else {
-  tiffDir = program.dir
+  tiffDir = opts.dir
     ? path.join(parentDir, dirBaseName + "_pprc_temp_tiffs_" + Date.now())
     : "temp_tiffs_" + Date.now();
 }
@@ -111,11 +197,11 @@ if (noInvert) {
 
     if (noInvert) {
       var verb;
-      if (program.e6) {
+      if (opts.e6) {
         verb = "auto-leveled";
-      } else if (program.bw) {
+      } else if (opts.bw) {
         verb = "inverted and auto-leveled greyscale";
-      } else if (program.bwRgb) {
+      } else if (opts.bwRgb) {
         verb = "inverted and auto-leveled RGB";
       } else {
         verb = "raw";
@@ -125,7 +211,7 @@ if (noInvert) {
       adjustTifsWithNegpro(tifs).then(function(convertedFiles) {
         process.stdout.write("\n");
         // Clean up temp tiff directory unless --keep-tiffs
-        if (!program.keepIntermediateTiffs) {
+        if (!opts.keepIntermediateTiffs) {
           tifs.forEach(function(tif) {
             try { fs.unlinkSync(tif); } catch (e) {}
           });
@@ -133,7 +219,7 @@ if (noInvert) {
           console.log("Deleted temporary tiffs, use --keep-intermediate-tiffs to disable deleting.");
         }
         console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s! ${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
-        if (program.keepIntermediateTiffs) {
+        if (opts.keepIntermediateTiffs) {
           console.log(`Intermediate tiff files kept in '${tiffDir}'.`);
         }
         if (convertedFiles.rejectedFramesEvent) {
@@ -170,9 +256,9 @@ function scanDirectoryForFiles () {
   var rawFiles = fs.readdirSync(inputDir).filter(function(f) { return /\.raw$/i.test(f); });
 
   if (!rawFiles.length) {
-    exitWithError(`No .raw files found in ${program.dir ? "'" + inputDir + "'" : "the current directory"}\nPlease run this script from the same directory where you have saved your planar .raw files from TLXClientDemo, or use --dir to specify the directory.`);
+    exitWithError(`No .raw files found in ${opts.dir ? "'" + inputDir + "'" : "the current directory"}\nPlease run this script from the same directory where you have saved your planar .raw files from TLXClientDemo, or use --dir to specify the directory.`);
   } else {
-    console.log(`Found ${rawFiles.length} raw files in ${program.dir ? "'" + inputDir + "'" : "current directory"}...`);
+    console.log(`Found ${rawFiles.length} raw files in ${opts.dir ? "'" + inputDir + "'" : "current directory"}...`);
     return rawFiles;
   }
 }
@@ -226,8 +312,8 @@ function checkRawFiles(rawFiles){
     }
 
     // 2. Fall back to --dimensions flag
-    if (!fileInfo && program.dimensions && program.dimensions.split("x").length === 2) {
-      var splitDimensions = program.dimensions.split("x"),
+    if (!fileInfo && opts.dimensions && opts.dimensions.split("x").length === 2) {
+      var splitDimensions = opts.dimensions.split("x"),
           width = parseInt(splitDimensions[0], 10),
           height = parseInt(splitDimensions[1], 10);
       var channels = 3;
@@ -289,7 +375,7 @@ function checkRawFiles(rawFiles){
     });
   }
 
-  if (program.dimensions) {
+  if (opts.dimensions) {
     if (dimensionsNeeded.length === 0) {
       console.log('\x1b[3mTip: --dimensions was not necessary — all files have embedded headers.\x1b[0m');
     } else {
@@ -305,7 +391,7 @@ function convertRawFilesToTiff (data) {
 
   var qualifiers = [];
   if (noInvert) qualifiers.push("no inversion");
-  if (program.gamma1) qualifiers.push("without gamma adjustment");
+  if (opts.gamma1) qualifiers.push("without gamma adjustment");
   if (qualifiers.length) label += " (" + qualifiers.join(", ") + ")";
 
   console.log(label);
@@ -336,9 +422,9 @@ function convertRawToTiff (name, fileInfo) {
   var destinationFile = path.join(tiffDir, `${baseName}.tif`);
 
   var mode = 'default';
-  if (program.e6) mode = 'e6';
-  else if (program.bw) mode = 'bw';
-  else if (program.bwRgb) mode = 'bw-rgb';
+  if (opts.e6) mode = 'e6';
+  else if (opts.bw) mode = 'bw';
+  else if (opts.bwRgb) mode = 'bw-rgb';
 
   return new Promise(function(resolve, reject) {
     var worker = new Worker(path.join(__dirname, 'lib', 'convert-worker.js'), {
@@ -349,7 +435,7 @@ function convertRawToTiff (name, fileInfo) {
         channels: fileInfo.channels,
         headerOffset: fileInfo.headerOffset,
         destinationFile: path.resolve(destinationFile),
-        applyGamma: !program.gamma1,
+        applyGamma: !opts.gamma1,
         mode: mode
       }
     });
@@ -450,21 +536,21 @@ function adjustTifsWithNegpro(tifs) {
 
   // Only pass these options when explicitly set via CLI, so negpro's
   // own config.json defaults are respected otherwise
-  if (program.perImageBalancing) {
+  if (opts.perImageBalancing) {
     options.perImage = true;
   }
-  if (program.frameRejection === false) {
+  if (opts.frameRejection === false) {
     options.rejectOutliers = false;
   }
-  if (program.clip !== undefined) {
-    options.clipBlack = parseFloat(program.clip);
-    options.clipWhite = parseFloat(program.clip);
+  if (opts.clip !== undefined) {
+    options.clipBlack = parseFloat(opts.clip);
+    options.clipWhite = parseFloat(opts.clip);
   }
-  if (program.clipBlack !== undefined) {
-    options.clipBlack = parseFloat(program.clipBlack);
+  if (opts.clipBlack !== undefined) {
+    options.clipBlack = parseFloat(opts.clipBlack);
   }
-  if (program.clipWhite !== undefined) {
-    options.clipWhite = parseFloat(program.clipWhite);
+  if (opts.clipWhite !== undefined) {
+    options.clipWhite = parseFloat(opts.clipWhite);
   }
 
   return negpro.processFiles(tifPaths, options).then(function(results) {
