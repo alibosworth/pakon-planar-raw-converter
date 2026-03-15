@@ -1,6 +1,6 @@
 {
   "name": "pakon-planar-raw-converter",
-  "version": "1.0.0-beta.20260314-01",
+  "version": "1.0.0-beta.20260314-02",
   "description": "A script to convert Pakon F-135+ Planar RAW scans from TLXClientDemo into usable files",
   "keywords": [
     "kodak",
