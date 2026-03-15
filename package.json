@@ -22,6 +22,9 @@
     "35mm",
     "images"
   ],
+  "scripts": {
+    "run-docs-site": "cp README.md docs/_readme.md && cd docs && bundle exec jekyll serve"
+  },
   "main": "index.js",
   "author": "Ali Bosworth <ali@alibosworth.com> (http://alibosworth.com/)",
   "license": "GPL-3.0",

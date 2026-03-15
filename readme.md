@@ -153,6 +153,10 @@ Here are some options you can run:
 
 ----------
 
-## Questions?
+## Questions? 
 
 ali@alibosworth.com
+
+## Feeling appreciative?
+
+[https://ko-fi.com/alibosworth](https://ko-fi.com/alibosworth)
