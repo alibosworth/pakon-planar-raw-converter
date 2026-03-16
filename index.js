@@ -30,6 +30,16 @@ if (process.argv.includes('--postinstall')) {
   process.exit(0);
 }
 
+// Check for updates in the background (respects alpha/beta channels)
+import updateNotifier from 'update-notifier';
+var distTag = pkg.version.includes('alpha') ? 'alpha'
+            : pkg.version.includes('beta') ? 'beta'
+            : 'latest';
+var updateCheckInterval = distTag === 'alpha' ? 1000 * 60 * 60
+                        : distTag === 'beta'  ? 1000 * 60 * 60 * 12
+                        : 1000 * 60 * 60 * 24;
+updateNotifier({ pkg, distTag, updateCheckInterval }).notify({ isGlobal: true });
+
 var { Worker } = await import('worker_threads');
 var { default: Promise } = await import('bluebird');
 var { default: negpro } = await import('negpro');
