@@ -507,7 +507,8 @@ function convertRawToTiff (name, fileInfo) {
         headerOffset: fileInfo.headerOffset,
         destinationFile: path.resolve(destinationFile),
         applyGamma: !opts.gamma1,
-        mode: mode
+        mode: mode,
+        software: `PPRC v${pkg.version}`
       }
     });
     worker.on('message', function(result) {
