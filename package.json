@@ -1,6 +1,6 @@
 {
   "name": "pakon-planar-raw-converter",
-  "version": "1.0.0-alpha.20260315-06",
+  "version": "1.0.0-alpha.20260315-10",
   "description": "A script to convert Pakon F-135+ Planar RAW scans from TLXClientDemo into usable files",
   "keywords": [
     "kodak",
@@ -29,6 +29,7 @@
     "publish-alpha": "npm publish --tag alpha",
     "publish-beta": "npm publish --tag beta"
   },
+  "type": "module",
   "main": "index.js",
   "author": "Ali Bosworth <ali@alibosworth.com> (https://alibosworth.com/)",
   "license": "GPL-3.0",
@@ -40,6 +41,7 @@
   "dependencies": {
     "bluebird": "^3.5.1",
     "commander": "^12.1.0",
-    "negpro": "^2026.3.14"
+    "negpro": "^2026.3.14",
+    "update-notifier": "^7.3.1"
   }
 }

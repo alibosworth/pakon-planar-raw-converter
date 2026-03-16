@@ -1,11 +1,16 @@
 #!/usr/bin/env node
-var fs = require( 'fs' );
-var path = require( 'path' );
-var process = require( "process" );
+import fs from 'fs';
+import path from 'path';
+import process from 'process';
+import { fileURLToPath } from 'url';
+
+var __filename = fileURLToPath(import.meta.url);
+var __dirname = path.dirname(__filename);
+
+var pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
 
 // Handle --postinstall before loading heavy dependencies
 if (process.argv.includes('--postinstall')) {
-  var pkg = require('./package.json');
   var cyan = '\x1b[36m';
   var reset = '\x1b[0m';
   var lines = [
@@ -25,11 +30,20 @@ if (process.argv.includes('--postinstall')) {
   process.exit(0);
 }
 
-var { Worker } = require('worker_threads');
-var Promise = require("bluebird");
-var negpro = require('negpro');
-var { Command, Help, Option } = require('commander');
-var pkg = require('./package.json');
+// Check for updates in the background (respects alpha/beta channels)
+import updateNotifier from 'update-notifier';
+var distTag = pkg.version.includes('alpha') ? 'alpha'
+            : pkg.version.includes('beta') ? 'beta'
+            : 'latest';
+var updateCheckInterval = distTag === 'alpha' ? 1000 * 60 * 60
+                        : distTag === 'beta'  ? 1000 * 60 * 60 * 12
+                        : 1000 * 60 * 60 * 24;
+updateNotifier({ pkg, distTag, updateCheckInterval }).notify({ isGlobal: true });
+
+var { Worker } = await import('worker_threads');
+var { default: Promise } = await import('bluebird');
+var { default: negpro } = await import('negpro');
+var { Command, Help, Option } = await import('commander');
 
 var bannerLines = [
   `   pprc  v${pkg.version}`,
@@ -118,13 +132,13 @@ program
 var opts = program.opts();
 
 if (opts.installQuickAction) {
-  var macosService = require('./lib/macos-service');
+  var macosService = await import('./lib/macos-service.js');
   macosService.install();
   process.exit(0);
 }
 
 if (opts.uninstallQuickAction) {
-  var macosService = require('./lib/macos-service');
+  var macosService = await import('./lib/macos-service.js');
   macosService.uninstall();
   process.exit(0);
 }
