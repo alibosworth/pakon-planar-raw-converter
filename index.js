@@ -618,7 +618,7 @@ function adjustTifsWithNegpro(tifs) {
     options.perImage = true;
   }
   if (opts.frameRejection === false) {
-    options.rejectOutliers = false;
+    options.noFrameRejection = true;
   }
   if (opts.clip !== undefined) {
     options.clipBlack = parseFloat(opts.clip);
