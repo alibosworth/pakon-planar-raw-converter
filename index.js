@@ -42,7 +42,7 @@ updateNotifier({ pkg, distTag, updateCheckInterval }).notify({ isGlobal: true })
 
 var { Worker } = await import('worker_threads');
 var { default: Promise } = await import('bluebird');
-var { default: negpro } = await import('negpro');
+var { default: negpro, processImages } = await import('negpro');
 var { Command, Help, Option } = await import('commander');
 
 var bannerLines = [
@@ -75,7 +75,7 @@ var GROUP_HEADERS = {
   '--no-invert': 'Processing Mode:',
   '--per-image-balancing': 'Tuning:',
   '--no-negfix': 'Deprecated:',
-  '--keep-intermediate-tiffs': 'Utility:',
+  '--install-quick-action': 'Utility:',
 };
 
 var program = new Command();
@@ -96,7 +96,6 @@ program
   .option('--gamma1', 'Skip 2.2 gamma correction, leaving the raw file linear (gamma 1.0)')
   .option('--no-negfix', '[deprecated: use --no-invert] Skip negative inversion')
   .option('--dimensions [width]x[height]', '[deprecated] Manually specify pixel dimensions for headerless raw files (e.g. "4000x2000")')
-  .option('--keep-intermediate-tiffs', 'Keep the intermediate tiff files instead of deleting them')
   .addOption(new Option('--install-quick-action', 'Install macOS Finder right-click Quick Action for folders').hideHelp(process.platform !== 'darwin'))
   .addOption(new Option('--uninstall-quick-action', 'Remove the macOS Finder Quick Action').hideHelp(process.platform !== 'darwin'))
   .option('--examples', 'Show usage examples')
@@ -183,9 +182,6 @@ Examples:
   Clip shadows and highlights separately:
     pprc --clip-black 0.5 --clip-white 0.1
 
-  Keep intermediate tiff files for inspection or reprocessing:
-    pprc --keep-intermediate-tiffs
-
   Skip gamma correction — output linear data for manual processing:
     pprc --gamma1
 
@@ -223,19 +219,6 @@ if (opts.dir) {
   outputDir = opts.dirOut;
 }
 
-if (noInvert) {
-  // When skipping inversion, tiffs are the final output — put them in the output dir
-  tiffDir = outputDir;
-} else if (opts.keepIntermediateTiffs) {
-  tiffDir = opts.dir
-    ? path.join(parentDir, dirBaseName + "_pprc_tiffs")
-    : "tiffs";
-} else {
-  tiffDir = opts.dir
-    ? path.join(parentDir, dirBaseName + "_pprc_temp_tiffs_" + Date.now())
-    : "temp_tiffs_" + Date.now();
-}
-
 // Auto-increment output dir if it already exists (only for default naming)
 var usingDefaultOutputDir = opts.dirOut === OUTPUT_DIR;
 if (usingDefaultOutputDir && fs.existsSync(outputDir)) {
@@ -246,6 +229,11 @@ if (usingDefaultOutputDir && fs.existsSync(outputDir)) {
     n++;
   }
   console.log(`Previous output exists, using '${path.basename(outputDir)}' instead.`);
+}
+
+if (noInvert) {
+  // When skipping inversion, tiffs are the final output — put them in the output dir
+  tiffDir = outputDir;
 }
 
 // Validate input directory exists before creating any output dirs
@@ -264,18 +252,19 @@ if (opts.dir && !fs.existsSync(inputDir)) {
     fs.mkdirSync(outputDir);
   }
 
-  // Create the tiff directory
-  if (!fs.existsSync(tiffDir)) {
+  // Create the tiff directory (only needed for --no-invert)
+  if (noInvert && !fs.existsSync(tiffDir)) {
     fs.mkdirSync(tiffDir);
   }
 
   var startTime = Date.now();
   var rawFiles = scanDirectoryForFiles();
   var usableRawFiles = checkRawFiles(rawFiles);
-  convertRawFilesToTiff(usableRawFiles).then(function(tifs){
+  convertRawFilesToTiff(usableRawFiles).then(function(buffers){
     process.stdout.write("\n");
 
     if (noInvert) {
+      // buffers are actually file paths in --no-invert mode
       var verb;
       if (opts.e6) {
         verb = "auto-leveled";
@@ -287,51 +276,156 @@ if (opts.dir && !fs.existsSync(inputDir)) {
         verb = "raw";
       }
       console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
-      console.log(`${tifs.length} ${tifs.length === 1 ? "file" : "files"} saved to '${tiffDir}' as ${verb} TIFF.`);
+      console.log(`${buffers.length} ${buffers.length === 1 ? "file" : "files"} saved to '${tiffDir}' as ${verb} TIFF.`);
     } else {
-      adjustTifsWithNegpro(tifs).then(function(convertedFiles) {
-        process.stdout.write("\n");
-        // Clean up temp tiff directory unless --keep-tiffs
-        if (!opts.keepIntermediateTiffs) {
-          tifs.forEach(function(tif) {
-            try { fs.unlinkSync(tif); } catch (e) {}
-          });
-          try { fs.rmdirSync(tiffDir); } catch (e) {}
-          console.log("Deleted temporary tiffs, use --keep-intermediate-tiffs to disable deleting.");
-        }
-        console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
-        console.log(`${convertedFiles.length} ${convertedFiles.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
-        if (opts.keepIntermediateTiffs) {
-          console.log(`Intermediate tiff files kept in '${tiffDir}'.`);
-        }
-        if (convertedFiles.rejectedFramesEvent) {
-          var evt = convertedFiles.rejectedFramesEvent;
-          var lines = [`\nℹ️ Note: ${evt.rejected.length} of ${evt.total} frames were not used when calculating shared color balance due to differing color characteristics:`];
-          evt.rejected.forEach(function(filePath) {
-            lines.push(`  ${path.basename(filePath)}`);
-          });
-          lines.push("Use --no-frame-rejection to include all frames in color balancing.");
-          console.log(`\x1b[33m${lines.join('\n')}\x1b[0m`);
-        }
-        if (convertedFiles.processWarnings && convertedFiles.processWarnings.length > 0) {
-          convertedFiles.processWarnings.forEach(function(w) {
-            if (w.code === 'CLIPPING_RISK') {
-              var affected = w.affectedFiles.map(function(f) { return path.basename(f); });
-              var msg;
-              if (affected.length > w.totalFiles * 0.5) {
-                msg = `${affected.length} of ${w.totalFiles} images have narrow density range. Contrast stretch clipping may be too aggressive — consider using --clip 0.01 (or --clip-black / --clip-white individually).`;
-              } else {
-                msg = `${affected.length} image(s) have narrow density range (${affected.join(', ')}). Contrast stretch clipping may be too aggressive for these frames — consider using --clip 0.01 (or --clip-black / --clip-white individually).`;
-              }
-              console.log(`\n\x1b[33m⚠️ Warning: ${msg}\x1b[0m`);
-            } else {
-              console.log(`\n\x1b[33m⚠️ Warning: ${w.message}\x1b[0m`);
-            }
-          });
-        }
-      });
+      invertBuffersWithNegpro(buffers);
     }
   });
+
+  function invertBuffersWithNegpro(buffers) {
+    // Build InputBuffer array for negpro's processImages
+    var images = buffers.map(function(buf) {
+      return { pixels: buf.pixels, width: buf.width, height: buf.height, name: buf.name };
+    });
+
+    var totalFiles = images.length;
+    var analyzeLabelPrinted = false;
+    var invertLabelPrinted = false;
+    var rejectedFramesEvent = null;
+    var processWarnings = [];
+
+    function renderProgress(completed, total) {
+      var bar = [];
+      for (var i = 0; i < total; i++) {
+        bar.push(completed[i] ? '▰' : '▱');
+      }
+      process.stdout.write(`\r${bar.join(' ')}`);
+    }
+
+    var analysisDone = new Array(totalFiles).fill(false);
+    var adjustDone = new Array(totalFiles).fill(false);
+    var resolvedPerImage = false;
+
+    var negproOpts = {
+      outputDir: path.resolve(outputDir),
+      callerName: `PPRC v${pkg.version}`,
+      onProgress: function(event) {
+        if (event.type === 'config') {
+          resolvedPerImage = event.config.perImage;
+
+          // Show settings coming from negpro global config
+          var fromConfig = event.sources ? Object.keys(event.sources).filter(function(key) {
+            return event.sources[key] === 'config';
+          }) : [];
+          if (fromConfig.length > 0 && event.configPath) {
+            var lines = ["Using negpro global config (" + event.configPath + "):"];
+            fromConfig.forEach(function(key) {
+              lines.push("  " + key + ": " + event.config[key]);
+            });
+            console.log(lines.join("\n"));
+          }
+
+          if (resolvedPerImage) {
+            console.log("Inverting images with negpro (per-image balancing)");
+          }
+          return;
+        }
+
+        if (event.type === 'analyzing') {
+          if (!analyzeLabelPrinted) {
+            analyzeLabelPrinted = true;
+            console.log("Analysing images to determine average data for inversion");
+          }
+          analysisDone[event.index] = true;
+          renderProgress(analysisDone, totalFiles);
+          return;
+        }
+
+        if (event.type === 'profile-computed') {
+          process.stdout.write("\n");
+          return;
+        }
+
+        if (event.type === 'frames-rejected') {
+          rejectedFramesEvent = event;
+          return;
+        }
+
+        if (event.type === 'processing') {
+          if (!invertLabelPrinted && !resolvedPerImage) {
+            invertLabelPrinted = true;
+            console.log("Inverting images with negpro");
+          }
+          return;
+        }
+
+        if (event.type === 'done') {
+          adjustDone[event.index] = true;
+          renderProgress(adjustDone, totalFiles);
+          return;
+        }
+
+        if (event.type === 'complete') {
+          processWarnings = event.warnings || [];
+          return;
+        }
+      }
+    };
+
+    // Pass through CLI options
+    if (opts.perImageBalancing) {
+      negproOpts.perImage = true;
+    }
+    if (opts.frameRejection === false) {
+      negproOpts.noFrameRejection = true;
+    }
+    if (opts.clip !== undefined) {
+      negproOpts.clipBlack = parseFloat(opts.clip);
+      negproOpts.clipWhite = parseFloat(opts.clip);
+    }
+    if (opts.clipBlack !== undefined) {
+      negproOpts.clipBlack = parseFloat(opts.clipBlack);
+    }
+    if (opts.clipWhite !== undefined) {
+      negproOpts.clipWhite = parseFloat(opts.clipWhite);
+    }
+
+    processImages(images, negproOpts).then(function(results) {
+      process.stdout.write("\n");
+
+      console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
+      console.log(`${results.length} ${results.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
+
+      // Frame rejection notice
+      if (rejectedFramesEvent) {
+        var evt = rejectedFramesEvent;
+        var lines = [`\nℹ️ Note: ${evt.rejected.length} of ${evt.total} frames were not used when calculating shared color balance due to differing color characteristics:`];
+        evt.rejected.forEach(function(name) {
+          lines.push(`  ${path.basename(name)}.raw`);
+        });
+        lines.push("Use --no-frame-rejection to include all frames in color balancing.");
+        console.log(`\x1b[33m${lines.join('\n')}\x1b[0m`);
+      }
+
+      // Clipping risk warnings
+      if (processWarnings.length > 0) {
+        processWarnings.forEach(function(w) {
+          if (w.code === 'CLIPPING_RISK') {
+            var affected = w.affectedFiles.map(function(f) { return path.basename(f); });
+            var msg;
+            if (affected.length > totalFiles * 0.5) {
+              msg = `${affected.length} of ${totalFiles} images have narrow density range. Contrast stretch clipping may be too aggressive — consider using --clip 0.01 (or --clip-black / --clip-white individually).`;
+            } else {
+              msg = `${affected.length} image(s) have narrow density range (${affected.join(', ')}). Contrast stretch clipping may be too aggressive for these frames — consider using --clip 0.01 (or --clip-black / --clip-white individually).`;
+            }
+            console.log(`\n\x1b[33m⚠️ Warning: ${msg}\x1b[0m`);
+          } else {
+            console.log(`\n\x1b[33m⚠️ Warning: ${w.message}\x1b[0m`);
+          }
+        });
+      }
+    });
+  }
 })();
 
 function scanDirectoryForFiles () {
@@ -501,7 +595,8 @@ function convertRawFilesToTiff (data) {
 
 function convertRawToTiff (name, fileInfo) {
   var baseName = path.basename(name, ".raw");
-  var destinationFile = path.join(tiffDir, `${baseName}.tif`);
+  var destinationFile = noInvert ? path.join(tiffDir, `${baseName}.tif`) : null;
+  var returnBuffer = !noInvert;
 
   var mode = 'default';
   if (opts.e6) mode = 'e6';
@@ -516,130 +611,18 @@ function convertRawToTiff (name, fileInfo) {
         height: fileInfo.height,
         channels: fileInfo.channels,
         headerOffset: fileInfo.headerOffset,
-        destinationFile: path.resolve(destinationFile),
+        destinationFile: destinationFile ? path.resolve(destinationFile) : null,
         applyGamma: !opts.gamma1,
         mode: mode,
-        software: `PPRC v${pkg.version}`
+        software: `PPRC v${pkg.version}`,
+        returnBuffer: returnBuffer,
+        baseName: baseName
       }
     });
     worker.on('message', function(result) {
       resolve(result);
     });
     worker.on('error', reject);
-  });
-}
-
-function adjustTifsWithNegpro(tifs) {
-  var tifPaths = tifs.map(function(tif) {
-    return path.resolve(tif);
-  });
-
-  var totalFiles = tifPaths.length;
-  var analysisDone = [];
-  var adjustDone = [];
-  for (var i = 0; i < totalFiles; i++) {
-    analysisDone.push(false);
-    adjustDone.push(false);
-  }
-
-  var resolvedPerImage = false;
-  var analyzeLabelPrinted = false;
-  var invertLabelPrinted = false;
-  var rejectedFramesEvent = null;
-  var processWarnings = [];
-
-  function renderProgress(completed) {
-    var bar = completed.map(function(done) { return done ? '▰' : '▱'; }).join(' ');
-    process.stdout.write(`\r${bar}`);
-  }
-
-  var options = {
-    outputDir: path.resolve(outputDir),
-    onProgress: function(event) {
-      if (event.type === 'config') {
-        resolvedPerImage = event.config.perImage;
-
-        // Show settings coming from negpro global config
-        var fromConfig = event.sources ? Object.keys(event.sources).filter(function(key) {
-          return event.sources[key] === 'config';
-        }) : [];
-        if (fromConfig.length > 0 && event.configPath) {
-          var lines = ["Using negpro global config (" + event.configPath + "):"];
-          fromConfig.forEach(function(key) {
-            lines.push("  " + key + ": " + event.config[key]);
-          });
-          console.log(lines.join("\n"));
-        }
-
-        if (resolvedPerImage) {
-          console.log("Inverting tiff files with negpro (per-image balancing)");
-        }
-        return;
-      }
-
-      if (event.type === 'frames-rejected') {
-        rejectedFramesEvent = event;
-        return;
-      }
-
-      if (event.type === 'complete') {
-        processWarnings = event.warnings || [];
-        return;
-      }
-
-      if (resolvedPerImage) {
-        // In per-image mode, analyze+invert are interleaved per file,
-        // so just track completion with a single progress bar
-        if (event.type === 'done') {
-          adjustDone[event.index] = true;
-          renderProgress(adjustDone);
-        }
-      } else {
-        if (event.type === 'analyzing') {
-          if (!analyzeLabelPrinted) {
-            analyzeLabelPrinted = true;
-            console.log("Analysing tiff files to determine average image data for inversion");
-          }
-          analysisDone[event.index] = true;
-          renderProgress(analysisDone);
-        } else if (event.type === 'profile-computed') {
-          process.stdout.write("\n");
-        } else if (event.type === 'processing' && !invertLabelPrinted) {
-          invertLabelPrinted = true;
-          console.log("Inverting tiff files with negpro");
-        } else if (event.type === 'done') {
-          adjustDone[event.index] = true;
-          renderProgress(adjustDone);
-        }
-      }
-    }
-  };
-
-  options.callerName = `PPRC v${pkg.version}`;
-
-  // Only pass these options when explicitly set via CLI, so negpro's
-  // own config.json defaults are respected otherwise
-  if (opts.perImageBalancing) {
-    options.perImage = true;
-  }
-  if (opts.frameRejection === false) {
-    options.noFrameRejection = true;
-  }
-  if (opts.clip !== undefined) {
-    options.clipBlack = parseFloat(opts.clip);
-    options.clipWhite = parseFloat(opts.clip);
-  }
-  if (opts.clipBlack !== undefined) {
-    options.clipBlack = parseFloat(opts.clipBlack);
-  }
-  if (opts.clipWhite !== undefined) {
-    options.clipWhite = parseFloat(opts.clipWhite);
-  }
-
-  return negpro.processFiles(tifPaths, options).then(function(results) {
-    results.rejectedFramesEvent = rejectedFramesEvent;
-    results.processWarnings = processWarnings;
-    return results;
   });
 }
 
