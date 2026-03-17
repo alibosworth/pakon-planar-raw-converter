@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 var __filename = fileURLToPath(import.meta.url);
 var __dirname = path.dirname(__filename);
 
-var pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+import pkg from './package.json' with { type: 'json' };
 
 // Handle --postinstall before loading heavy dependencies
 if (process.argv.includes('--postinstall')) {
@@ -82,7 +82,7 @@ var program = new Command();
 program
   .name('pprc')
   .option('--dir [dir]', 'Directory containing .raw files to process (default: current directory)')
-  .option('--dir-out [dir]', `Specify the output directory name`, OUTPUT_DIR)
+  .option('--dir-out [dir]', `Output directory (use DIR_NAME for input folder name, start with '../' to place beside input)`, OUTPUT_DIR)
   .addOption(new Option('--output-dir [dir]', `Specify the output directory name`).hideHelp())
   .option('--no-invert', 'Skip negative inversion, output raw tiffs for processing with another tool')
   .option('--e6', 'Skip negative inversion, apply auto-level (for "Film Color: Positive" scans)')
@@ -155,11 +155,17 @@ Examples:
   Basic usage — run from a folder of .raw files (output: out/):
     pprc
 
-  Process a specific directory of .raw files (output: /path/to/raw/files_pprc_out/):
+  Process a specific directory of .raw files (output: /path/to/raw/files/out/):
     pprc --dir /path/to/raw/files
 
-  Process a directory, writing output to a specific folder:
-    pprc --dir /path/to/raw/files --dir-out /path/to/output
+  Custom output name with template (output: /path/to/raw/files/files_inverted/):
+    pprc --dir /path/to/raw/files --dir-out DIR_NAME_inverted
+
+  Output beside the input folder instead of inside it:
+    pprc --dir-out ../DIR_NAME_pprc_out
+
+  Output to an absolute path:
+    pprc --dir-out /path/to/output
 
   Skip inversion — useful if you want to invert with another tool:
     pprc --no-invert
@@ -205,23 +211,33 @@ if (opts.negfix === false) {
 
 var noInvert = opts.invert === false || opts.e6 || opts.bw || opts.bwRgb;
 
-// Resolve input directory and sibling output paths
+// Resolve input directory and output paths
 var inputDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
-var parentDir, dirBaseName, outputDir, tiffDir;
+var dirBaseName = path.basename(inputDir);
+var outputDir, tiffDir;
 
-if (opts.dir) {
-  parentDir = path.dirname(inputDir);
-  dirBaseName = path.basename(inputDir);
-  outputDir = opts.dirOut !== OUTPUT_DIR
-    ? opts.dirOut
-    : path.join(parentDir, dirBaseName + "_pprc_out");
-} else {
-  outputDir = opts.dirOut;
+// Replace DIR_NAME template in --dir-out value
+var dirOutValue = opts.dirOut.replace(/DIR_NAME/g, dirBaseName);
+
+// Normalize backslashes to forward slashes for cross-platform support (Windows ..\)
+dirOutValue = dirOutValue.replace(/\\/g, '/');
+
+// Catch likely typo: "..foo" instead of "../foo" would create a hidden directory
+if (/^\.\.(?!\.)/.test(dirOutValue) && !dirOutValue.startsWith('../')) {
+  exitWithError(`--dir-out '${opts.dirOut}' would create a hidden directory '${dirOutValue}'. Did you mean '../${dirOutValue.slice(2)}'?`);
 }
 
-// Auto-increment output dir if it already exists (only for default naming)
-var usingDefaultOutputDir = opts.dirOut === OUTPUT_DIR;
-if (usingDefaultOutputDir && fs.existsSync(outputDir)) {
+if (path.isAbsolute(dirOutValue)) {
+  // Absolute path — use as-is
+  outputDir = dirOutValue;
+} else {
+  // Relative path — resolve from inside the input dir
+  outputDir = path.resolve(inputDir, dirOutValue);
+}
+
+// Auto-increment output dir if it already exists (not for absolute paths)
+var usingAbsoluteOutputDir = path.isAbsolute(dirOutValue);
+if (!usingAbsoluteOutputDir && fs.existsSync(outputDir)) {
   var baseOutputDir = outputDir;
   var n = 2;
   while (fs.existsSync(outputDir)) {
@@ -241,20 +257,14 @@ if (opts.dir && !fs.existsSync(inputDir)) {
   exitWithError(`Directory not found: '${inputDir}'`);
 }
 
-// Check output dir for existing tiffs
+// Create output dir or error if explicit path already exists
 (function() {
   if (fs.existsSync(outputDir)){
-    var existingFiles = fs.readdirSync(outputDir).filter(function(f) { return /\.tiff?$/i.test(f); });
-    if (existingFiles.length > 0) {
-      exitWithError(`Output directory '${outputDir}' already contains ${existingFiles.length} TIFF file${existingFiles.length === 1 ? '' : 's'}. Please remove or rename it before running again.`);
+    if (usingAbsoluteOutputDir) {
+      exitWithError(`Output directory '${outputDir}' already exists. Please remove or rename it before running again.`);
     }
-  } else if (!noInvert) {
-    fs.mkdirSync(outputDir);
-  }
-
-  // Create the tiff directory (only needed for --no-invert)
-  if (noInvert && !fs.existsSync(tiffDir)) {
-    fs.mkdirSync(tiffDir);
+  } else {
+    fs.mkdirSync(outputDir, { recursive: true });
   }
 
   var startTime = Date.now();
