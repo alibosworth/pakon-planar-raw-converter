@@ -82,7 +82,8 @@ var program = new Command();
 program
   .name('pprc')
   .option('--dir [dir]', 'Directory containing .raw files to process (default: current directory)')
-  .option('--output-dir [dir]', `Specify the output directory name`, OUTPUT_DIR)
+  .option('--dir-out [dir]', `Specify the output directory name`, OUTPUT_DIR)
+  .addOption(new Option('--output-dir [dir]', `Specify the output directory name`).hideHelp())
   .option('--no-invert', 'Skip negative inversion, output raw tiffs for processing with another tool')
   .option('--e6', 'Skip negative inversion, apply auto-level (for "Film Color: Positive" scans)')
   .option('--bw', 'Invert, auto-level, and save in grey-scale colorspace')
@@ -131,6 +132,11 @@ program
 
 var opts = program.opts();
 
+// Support deprecated --output-dir as alias for --dir-out
+if (opts.outputDir) {
+  opts.dirOut = opts.outputDir;
+}
+
 if (opts.installQuickAction) {
   var macosService = await import('./lib/macos-service.js');
   macosService.install();
@@ -154,7 +160,7 @@ Examples:
     pprc --dir /path/to/raw/files
 
   Process a directory, writing output to a specific folder:
-    pprc --dir /path/to/raw/files --output-dir /path/to/output
+    pprc --dir /path/to/raw/files --dir-out /path/to/output
 
   Skip inversion — useful if you want to invert with another tool:
     pprc --no-invert
@@ -210,11 +216,11 @@ var parentDir, dirBaseName, outputDir, tiffDir;
 if (opts.dir) {
   parentDir = path.dirname(inputDir);
   dirBaseName = path.basename(inputDir);
-  outputDir = opts.outputDir !== OUTPUT_DIR
-    ? opts.outputDir
+  outputDir = opts.dirOut !== OUTPUT_DIR
+    ? opts.dirOut
     : path.join(parentDir, dirBaseName + "_pprc_out");
 } else {
-  outputDir = opts.outputDir;
+  outputDir = opts.dirOut;
 }
 
 if (noInvert) {
@@ -231,7 +237,7 @@ if (noInvert) {
 }
 
 // Auto-increment output dir if it already exists (only for default naming)
-var usingDefaultOutputDir = opts.outputDir === OUTPUT_DIR;
+var usingDefaultOutputDir = opts.dirOut === OUTPUT_DIR;
 if (usingDefaultOutputDir && fs.existsSync(outputDir)) {
   var baseOutputDir = outputDir;
   var n = 2;
