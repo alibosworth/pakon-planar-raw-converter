@@ -248,6 +248,11 @@ if (usingDefaultOutputDir && fs.existsSync(outputDir)) {
   console.log(`Previous output exists, using '${path.basename(outputDir)}' instead.`);
 }
 
+// Validate input directory exists before creating any output dirs
+if (opts.dir && !fs.existsSync(inputDir)) {
+  exitWithError(`Directory not found: '${inputDir}'`);
+}
+
 // Check output dir for existing tiffs
 (function() {
   if (fs.existsSync(outputDir)){
