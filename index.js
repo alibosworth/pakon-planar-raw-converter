@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import process from 'process';
 import { fileURLToPath } from 'url';
@@ -134,6 +135,34 @@ var opts = program.opts();
 // Support deprecated --output-dir as alias for --dir-out
 if (opts.outputDir) {
   opts.dirOut = opts.outputDir;
+}
+
+// Load pprc config (~/.pprc/config.json)
+var pprcConfigDir = path.join(os.homedir(), '.pprc');
+var pprcConfigPath = path.join(pprcConfigDir, 'config.json');
+var pprcConfig = {};
+var pprcConfigApplied = {};
+
+if (fs.existsSync(pprcConfigPath)) {
+  try {
+    pprcConfig = JSON.parse(fs.readFileSync(pprcConfigPath, 'utf8'));
+  } catch (e) {
+    console.warn(`Warning: Could not parse ${pprcConfigPath}: ${e.message}`);
+  }
+
+  // Apply config values as defaults — CLI flags take priority
+  if (pprcConfig.dirOut && program.getOptionValueSource('dirOut') === 'default' && !opts.outputDir) {
+    opts.dirOut = pprcConfig.dirOut;
+    pprcConfigApplied.dirOut = pprcConfig.dirOut;
+  }
+
+  if (Object.keys(pprcConfigApplied).length > 0) {
+    var lines = [`Using pprc config (${pprcConfigPath}):`];
+    Object.keys(pprcConfigApplied).forEach(function(key) {
+      lines.push(`  ${key}: ${pprcConfigApplied[key]}`);
+    });
+    console.log(lines.join("\n"));
+  }
 }
 
 if (opts.installQuickAction) {
@@ -287,6 +316,7 @@ if (opts.dir && !fs.existsSync(inputDir)) {
       }
       console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
       console.log(`${buffers.length} ${buffers.length === 1 ? "file" : "files"} saved to '${tiffDir}' as ${verb} TIFF.`);
+      saveLastRunConfig();
     } else {
       invertBuffersWithNegpro(buffers);
     }
@@ -405,6 +435,7 @@ if (opts.dir && !fs.existsSync(inputDir)) {
 
       console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
       console.log(`${results.length} ${results.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
+      saveLastRunConfig();
 
       // Frame rejection notice
       if (rejectedFramesEvent) {
@@ -437,6 +468,25 @@ if (opts.dir && !fs.existsSync(inputDir)) {
     });
   }
 })();
+
+function saveLastRunConfig() {
+  try {
+    if (!fs.existsSync(pprcConfigDir)) {
+      fs.mkdirSync(pprcConfigDir, { recursive: true });
+    }
+    var lastRun = {
+      metadata: {
+        pprcVersion: pkg.version,
+        createdAt: new Date().toISOString(),
+        note: "Copy this file to config.json to reuse these settings: cp ~/.pprc/last_run_config.json ~/.pprc/config.json"
+      },
+      dirOut: opts.dirOut
+    };
+    fs.writeFileSync(path.join(pprcConfigDir, 'last_run_config.json'), JSON.stringify(lastRun, null, 2) + '\n');
+  } catch (e) {
+    // Non-critical, don't interrupt the user
+  }
+}
 
 function scanDirectoryForFiles () {
   var rawFiles = fs.readdirSync(inputDir).filter(function(f) { return /\.raw$/i.test(f); });
