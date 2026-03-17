@@ -118,15 +118,9 @@ You must run this program from your computer's "terminal" or "command prompt", t
 
 ## Options
 
-By default when you run the command `pprc` in the directory containing your TLXClientDemo exported raw files the following things will happen:
-
-1) The planar .raw files will be converted to temporary TIFF files.
-
-2) [negpro](https://github.com/alibosworth/negpro) is run on these TIFF files to invert and balance the negatives, and the results are placed in the "out" directory. The temporary TIFF files are then deleted.
+By default when you run the command `pprc` in the directory containing your TLXClientDemo exported raw files the planar .raw files will be converted in memory and passed to [negpro](https://github.com/alibosworth/negpro) for inversion and orange mask removal, and the results are placed in an `out` directory within the input directory. You can customize the output folder name and location (beside input dir vs within) by setting a global config file (see below)
 
 Here are some options you can run:
-
-* `--no-invert` Don't run negpro.  This will leave you with TIFFs that look dark and orange but you can use other tools to process them such as [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  If you use this option the raw TIFF files will be placed in the output directory.
 
 * `--per-image-balancing` Compute a separate inversion profile for each image instead of sharing one across all files. By default, all images are analysed together to produce a shared profile for more consistent results across a roll.
 
@@ -136,7 +130,15 @@ Here are some options you can run:
 
 * `--clip <percent>` Shorthand to set both `--clip-black` and `--clip-white` to the same value. For example, `--clip 1` gives more contrast by clipping 1% on each end.
 
-* `--output-dir [dir]`  Specify a different output subdirectory rather than "out".
+* `--dir [dir]` Process a specific directory of .raw files instead of the current directory.
+
+* `--dir-out [dir]` Specify the output directory (default: `out`, placed inside the input directory). Supports the `DIR_NAME` placeholder which is replaced with the input folder's name. If the output directory already exists, pprc auto-increments the name (`out`, `out_2`, `out_3`, etc.). Start with `../` to place the output beside the input folder instead of inside it. Absolute paths are used as-is (no auto-increment). Examples:
+
+  * `pprc --dir-out DIR_NAME_inverted` — output inside input folder as e.g. `myfolder_inverted/`
+  * `pprc --dir-out ../DIR_NAME_pprc_out` — output beside input folder as e.g. `myfolder_pprc_out/`
+  * `pprc --dir-out /path/to/output` — output to an absolute path
+
+* `--no-invert` Don't run negpro.  This will leave you with TIFFs that look dark and orange but you can use other tools to process them such as [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  If you use this option the raw TIFF files will be placed in the output directory.
 
 * `--e6` Skip running negpro, apply auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
 
@@ -152,7 +154,29 @@ Here are some options you can run:
 
 ----------
 
-## Questions? 
+## Global Config
+
+You can save default settings in `~/.pprc/config.json` so they apply to every run without needing CLI flags. CLI flags always take priority over config values.
+
+For example, to always place output beside the input folder, naming it based on the input folder with a `_inverted` suffix:
+
+```json
+{
+  "dirOut": "../DIR_NAME_inverted`"
+}
+```
+
+After each run, pprc saves the effective settings to `~/.pprc/last_run_config.json` to make it easier to populate the global config:
+
+```
+cp ~/.pprc/last_run_config.json ~/.pprc/config.json
+```
+
+When settings are loaded from config, pprc displays them at startup so you always know what's being applied.
+
+----------
+
+## Questions?
 
 ali@alibosworth.com
 
