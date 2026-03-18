@@ -642,15 +642,28 @@ function convertRawFilesToTiff (data) {
 
   renderConvertProgress();
 
-  var promises = items.map(function(item, index) {
-    return convertRawToTiff(item, data[item]).then(function(result) {
+  // Limit concurrent workers to CPU count to reduce peak memory
+  var maxConcurrency = os.cpus().length;
+  var results = new Array(items.length);
+  var nextIndex = 0;
+
+  function runNext() {
+    var index = nextIndex++;
+    if (index >= items.length) return Promise.resolve();
+    return convertRawToTiff(items[index], data[items[index]]).then(function(result) {
+      results[index] = result;
       convertDone[index] = true;
       renderConvertProgress();
-      return result;
+      return runNext();
     });
-  });
+  }
 
-  return Promise.all(promises);
+  var workers = [];
+  for (var w = 0; w < Math.min(maxConcurrency, items.length); w++) {
+    workers.push(runNext());
+  }
+
+  return Promise.all(workers).then(function() { return results; });
 }
 
 function convertRawToTiff (name, fileInfo) {
