@@ -31,6 +31,9 @@ if (process.argv.includes('--postinstall')) {
   process.exit(0);
 }
 
+var processStart = Date.now();
+var DEBUG = process.env.DEBUG === 'pprc';
+
 // Check for updates in the background (respects alpha/beta channels)
 import updateNotifier from 'update-notifier';
 var distTag = pkg.version.includes('alpha') ? 'alpha'
@@ -41,10 +44,11 @@ var updateCheckInterval = distTag === 'alpha' ? 1000 * 60 * 60
                         : 1000 * 60 * 60 * 24;
 updateNotifier({ pkg, distTag, updateCheckInterval }).notify({ isGlobal: true });
 
-var { Worker } = await import('worker_threads');
-var { default: Promise } = await import('bluebird');
-var { default: negpro, processImages } = await import('negpro');
-var { Command, Help, Option } = await import('commander');
+var [{ Worker }, { default: negpro, processImages }, { Command, Help, Option }] = await Promise.all([
+  import('worker_threads'),
+  import('negpro'),
+  import('commander')
+]);
 
 var bannerLines = [
   `   pprc  v${pkg.version}`,
@@ -297,10 +301,14 @@ if (opts.dir && !fs.existsSync(inputDir)) {
   }
 
   var startTime = Date.now();
+  var startupMs = startTime - processStart;
   var rawFiles = scanDirectoryForFiles();
   var usableRawFiles = checkRawFiles(rawFiles);
+  var scanTime = Date.now();
+  var convertTime;
   convertRawFilesToTiff(usableRawFiles).then(function(buffers){
     process.stdout.write("\n");
+    convertTime = Date.now();
 
     if (noInvert) {
       // buffers are actually file paths in --no-invert mode
@@ -316,6 +324,7 @@ if (opts.dir && !fs.existsSync(inputDir)) {
       }
       console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
       console.log(`${buffers.length} ${buffers.length === 1 ? "file" : "files"} saved to '${tiffDir}' as ${verb} TIFF.`);
+      if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms\x1b[0m`);
       saveLastRunConfig();
     } else {
       invertBuffersWithNegpro(buffers);
@@ -433,8 +442,10 @@ if (opts.dir && !fs.existsSync(inputDir)) {
     processImages(images, negproOpts).then(function(results) {
       process.stdout.write("\n");
 
-      console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
+      var negproTime = Date.now();
+      console.log(`\n✨ Completed in ${((negproTime - startTime) / 1000).toFixed(1)}s!`);
       console.log(`${results.length} ${results.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
+      if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms, negpro ${negproTime - convertTime}ms\x1b[0m`);
       saveLastRunConfig();
 
       // Frame rejection notice
@@ -499,7 +510,7 @@ function scanDirectoryForFiles () {
   }
 }
 
-function tryReadHeader(filePath) {
+function tryReadHeader(filePath, fileSize) {
   var fd = fs.openSync(filePath, 'r');
   var headerBuf = Buffer.alloc(HEADER_SIZE);
   var bytesRead = fs.readSync(fd, headerBuf, 0, HEADER_SIZE, 0);
@@ -520,7 +531,6 @@ function tryReadHeader(filePath) {
 
   var channels = bpp / 16;
   var expectedPixelBytes = width * height * channels * BYTES_PER_CHANNEL;
-  var fileSize = fs.statSync(filePath).size;
   if (fileSize !== HEADER_SIZE + expectedPixelBytes) return null;
 
   return { width: width, height: height, channels: channels, headerOffset: HEADER_SIZE };
@@ -537,7 +547,7 @@ function checkRawFiles(rawFiles){
     var fileInfo = null;
 
     // 1. Try reading header from the file
-    var header = tryReadHeader(filePath);
+    var header = tryReadHeader(filePath, sizeInBytes);
     if (header) {
       fileInfo = {
         width: header.width,
@@ -642,15 +652,28 @@ function convertRawFilesToTiff (data) {
 
   renderConvertProgress();
 
-  var promises = items.map(function(item, index) {
-    return convertRawToTiff(item, data[item]).then(function(result) {
+  // Limit concurrent workers to CPU count to reduce peak memory
+  var maxConcurrency = os.cpus().length;
+  var results = new Array(items.length);
+  var nextIndex = 0;
+
+  function runNext() {
+    var index = nextIndex++;
+    if (index >= items.length) return Promise.resolve();
+    return convertRawToTiff(items[index], data[items[index]]).then(function(result) {
+      results[index] = result;
       convertDone[index] = true;
       renderConvertProgress();
-      return result;
+      return runNext();
     });
-  });
+  }
 
-  return Promise.all(promises);
+  var workers = [];
+  for (var w = 0; w < Math.min(maxConcurrency, items.length); w++) {
+    workers.push(runNext());
+  }
+
+  return Promise.all(workers).then(function() { return results; });
 }
 
 function convertRawToTiff (name, fileInfo) {
