@@ -157,7 +157,7 @@ if (fs.existsSync(pprcConfigPath)) {
   }
 
   if (Object.keys(pprcConfigApplied).length > 0) {
-    var lines = [`Using pprc config (${pprcConfigPath}):`];
+    var lines = [`Using pprc global config (${pprcConfigPath}):`];
     Object.keys(pprcConfigApplied).forEach(function(key) {
       lines.push(`  ${key}: ${pprcConfigApplied[key]}`);
     });
