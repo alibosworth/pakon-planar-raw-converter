@@ -42,7 +42,6 @@ var updateCheckInterval = distTag === 'alpha' ? 1000 * 60 * 60
 updateNotifier({ pkg, distTag, updateCheckInterval }).notify({ isGlobal: true });
 
 var { Worker } = await import('worker_threads');
-var { default: Promise } = await import('bluebird');
 var { default: negpro, processImages } = await import('negpro');
 var { Command, Help, Option } = await import('commander');
 
