@@ -22,13 +22,15 @@ Additionally PPRC will now check for headers on the TLXClientDemo .raw files and
 Additional new features:
 
 - **macOS Finder Quick Action** — `pprc --install-quick-action` adds a `🎞️ Process with PPRC` right-click option for folders in Finder. Opens Terminal with `pprc --dir` so you can see progress. Use `--uninstall-quick-action` to remove.
-- **Output directory auto-increment** — when the default output directory already exists (e.g. from a previous run), PPRC automatically increments the name instead of erroring. Useful when tuning options across multiple runs.
+- **Flexible output directory** — `--dir-out` now supports the `DIR_NAME` placeholder (replaced with input folder name) and relative paths. Start with `../` to place output beside the input folder. Auto-increment (`out`, `out_2`, `out_3`, etc.) applies to all relative paths when the directory already exists.
+- **PPRC global config** — save default settings in `~/.pprc/config.json` (e.g. `{"dirOut": "../DIR_NAME_pprc_out"}`). CLI flags always override config values. Settings loaded from config are displayed at startup. After each run, effective settings are saved to `~/.pprc/last_run_config.json` for easy reuse.
 - **Clipping risk warnings** — pprc now warns when contrast stretch clipping may be too aggressive for narrow density range images, with a suggestion to use `--clip`
 - **CLI help improvements** — options are now grouped by category (Input/Output, Processing Mode, Tuning, etc.) and `pprc --examples` shows usage examples
 
 New options
 
 - `--dir` — process raw files from a specified directory
+- `--dir-out` — specify output directory with support for `DIR_NAME` template and relative paths (replaces `--output-dir`)
 - `--no-frame-rejection` — disable outlier frame rejection
 - `--install-quick-action` / `--uninstall-quick-action` — install/remove macOS Finder Quick Action
 - `--clip <percent>` — clip both black and white ends by N% during contrast stretch
@@ -39,11 +41,12 @@ New options
 Renamed options
 
 - `--no-invert` replacing `--no-negfix`
+- `--dir-out` replacing `--output-dir`
 
 There are some minor "breaking" changes to be aware of:
 
 - By default image analysis is averaged across all files in a batch and then applied to every image. This leads to more consistent images frame to frame.  You can opt back into the old approach where every image is analyzed individually with `--per-image-balancing`
-- By default intermediate tiffs are deleted, leaving you just with your original .raw files and the output dir of inverted tiffs.  If for whatever reason you want the intermediate tiffs to remain you can pass `--keep-intermediate-tiffs`
+- Intermediate raw tiffs are no longer created during the process.  If you want them you can run `pprc --no-invert`
 
 
 # 0.1.0
