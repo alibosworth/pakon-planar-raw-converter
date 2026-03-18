@@ -41,9 +41,11 @@ var updateCheckInterval = distTag === 'alpha' ? 1000 * 60 * 60
                         : 1000 * 60 * 60 * 24;
 updateNotifier({ pkg, distTag, updateCheckInterval }).notify({ isGlobal: true });
 
-var { Worker } = await import('worker_threads');
-var { default: negpro, processImages } = await import('negpro');
-var { Command, Help, Option } = await import('commander');
+var [{ Worker }, { default: negpro, processImages }, { Command, Help, Option }] = await Promise.all([
+  import('worker_threads'),
+  import('negpro'),
+  import('commander')
+]);
 
 var bannerLines = [
   `   pprc  v${pkg.version}`,
