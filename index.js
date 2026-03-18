@@ -31,6 +31,9 @@ if (process.argv.includes('--postinstall')) {
   process.exit(0);
 }
 
+var processStart = Date.now();
+var DEBUG = process.env.DEBUG === 'pprc';
+
 // Check for updates in the background (respects alpha/beta channels)
 import updateNotifier from 'update-notifier';
 var distTag = pkg.version.includes('alpha') ? 'alpha'
@@ -298,10 +301,14 @@ if (opts.dir && !fs.existsSync(inputDir)) {
   }
 
   var startTime = Date.now();
+  var startupMs = startTime - processStart;
   var rawFiles = scanDirectoryForFiles();
   var usableRawFiles = checkRawFiles(rawFiles);
+  var scanTime = Date.now();
+  var convertTime;
   convertRawFilesToTiff(usableRawFiles).then(function(buffers){
     process.stdout.write("\n");
+    convertTime = Date.now();
 
     if (noInvert) {
       // buffers are actually file paths in --no-invert mode
@@ -317,6 +324,7 @@ if (opts.dir && !fs.existsSync(inputDir)) {
       }
       console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
       console.log(`${buffers.length} ${buffers.length === 1 ? "file" : "files"} saved to '${tiffDir}' as ${verb} TIFF.`);
+      if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms\x1b[0m`);
       saveLastRunConfig();
     } else {
       invertBuffersWithNegpro(buffers);
@@ -434,8 +442,10 @@ if (opts.dir && !fs.existsSync(inputDir)) {
     processImages(images, negproOpts).then(function(results) {
       process.stdout.write("\n");
 
-      console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
+      var negproTime = Date.now();
+      console.log(`\n✨ Completed in ${((negproTime - startTime) / 1000).toFixed(1)}s!`);
       console.log(`${results.length} ${results.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
+      if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms, negpro ${negproTime - convertTime}ms\x1b[0m`);
       saveLastRunConfig();
 
       // Frame rejection notice
