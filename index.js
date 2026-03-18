@@ -503,7 +503,7 @@ function scanDirectoryForFiles () {
   }
 }
 
-function tryReadHeader(filePath) {
+function tryReadHeader(filePath, fileSize) {
   var fd = fs.openSync(filePath, 'r');
   var headerBuf = Buffer.alloc(HEADER_SIZE);
   var bytesRead = fs.readSync(fd, headerBuf, 0, HEADER_SIZE, 0);
@@ -530,7 +530,6 @@ function tryReadHeader(filePath) {
   // with the missing planes silently zeroed; reject it here instead.
   if (channels !== 3) return null;
   var expectedPixelBytes = width * height * channels * BYTES_PER_CHANNEL;
-  var fileSize = fs.statSync(filePath).size;
   if (fileSize !== HEADER_SIZE + expectedPixelBytes) return null;
 
   return { width: width, height: height, channels: channels, headerOffset: HEADER_SIZE };
@@ -547,7 +546,7 @@ function checkRawFiles(rawFiles){
     var fileInfo = null;
 
     // 1. Try reading header from the file
-    var header = tryReadHeader(filePath);
+    var header = tryReadHeader(filePath, sizeInBytes);
     if (header) {
       fileInfo = {
         width: header.width,
