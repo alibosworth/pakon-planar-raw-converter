@@ -3,7 +3,7 @@
 PPRC is a blazing fast (whole roll in seconds) tool that batch-converts Pakon F135/F135+ "planar" raw files into full 16-bit TIFFs with the orange mask removed giving you the highest-quality starting point for your editing workflow. Extensive customization options (output directory name and location, inversion tuning) can be saved to a global config so every run uses your preferred settings automatically.
 
 <figure>
-  <video muted playsinline loop controls src="https://github.com/user-attachments/assets/146c72cc-9ab9-44ae-bf60-47754c25bcde" width="100%"></video>
+  <video muted playsinline loop autoplay controls src="https://github.com/user-attachments/assets/146c72cc-9ab9-44ae-bf60-47754c25bcde" width="100%"></video>
   <figcaption>Video of most basic usage (via macOS Quick Action)</figcaption>
 </figure>
 
