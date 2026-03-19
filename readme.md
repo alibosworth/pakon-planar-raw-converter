@@ -29,7 +29,7 @@ PPRC is not a full-featured negative inversion editor. It does not offer per-ima
 
 PPRC's output is intentionally neutral and data-rich rather than punchy or stylized. Images will look flatter than what you'd get from a more aggressive inversion tool, and this is by design. The goal is to preserve maximum editing headroom so you can make decisions yourself via your preferred workflow.
 
-If you want to use your own orange mask removal process, run with `--no-invert` to instantly get 16-bit TIFF files to pipe through Negative Lab Pro, ColorPerfect, Vuescan, or any other tool.
+If you want to use your own orange mask removal process, run with `--mode raw` to get raw data as 16-bit TIFF files to pipe through Negative Lab Pro, ColorPerfect, Vuescan, or any other tool.
 
 ## How does the color inversion work?
 
@@ -152,6 +152,8 @@ Processed files will be saved to an `out/` subdirectory.
 
 ## Options
 
+#### Input/Output
+
 * `--dir [dir]` Process a specific directory of .raw files instead of the current directory.
 
 * `--dir-out [dir]` Specify the output directory (default: `out`, placed inside the input directory). Supports the `DIR_NAME` placeholder which is replaced with the input folder's name. If the output directory already exists, pprc auto-increments the name (`out`, `out_2`, `out_3`, etc.). Start with `../` to place the output beside the input folder instead of inside it. Absolute paths are used as-is (no auto-increment). Examples:
@@ -160,7 +162,16 @@ Processed files will be saved to an `out/` subdirectory.
   * `pprc --dir-out ../DIR_NAME_pprc_out` — output beside input folder as e.g. `myfolder_pprc_out/`
   * `pprc --dir-out /path/to/output` — output to an absolute path
 
-* `--no-invert` Skip orange mask removal. Outputs raw 16-bit TIFFs for use with your own inversion tool (Negative Lab Pro, ColorPerfect, Vuescan, etc.).
+#### Processing Mode
+
+* `--mode <mode>` Processing mode (default: `negative`). Choices:
+  * `negative` — Invert color negative, remove orange mask (default)
+  * `raw` — Output unconverted TIFFs for processing with another tool (Negative Lab Pro, ColorPerfect, Vuescan, etc.)
+  * `e6` — Slide film — no inversion, apply auto-level
+  * `bw` — Black & white — invert, auto-level, greyscale output
+  * `bw-rgb` — Black & white — invert, auto-level, RGB output
+
+#### Tuning
 
 * `--per-image-balancing` Compute a separate inversion profile for each image instead of sharing one across the roll.
 
@@ -172,15 +183,23 @@ Processed files will be saved to an `out/` subdirectory.
 
 * `--clip-white <percent>` Clip the brightest N% of pixels to white (default: 0.1).
 
-* `--e6` Skip inversion, apply auto-level. For "Film Color: Positive" (slide film) scans.
+* `--gamma <value>` Gamma correction applied during negative inversion (default: 2.15).
 
-* `--bw` Invert, auto-level, and save as greyscale.
+* `--no-stretch` Disable contrast stretch during inversion (enabled by default).
 
-* `--bw-rgb` Invert, auto-level, and save in RGB colorspace.
+* `--border-exclude <percent>` Exclude outer N% of image from profiling and contrast stretch (default: 2).
 
-* `--gamma1` Skip gamma correction, leaving the raw file linear (gamma 1.0).
+* `--pixel-rejection-percentage <percent>` Ignore brightest/darkest N% of pixels when profiling (default: 0.1).
 
-* `--dimensions [width]x[height]` Manually specify pixel dimensions for headerless raw files. Not needed when "Add File Header" is enabled in TLXClientDemo. Deprecated: save files with "Add File Header" selected.
+#### Profiles
+
+* `--save-profile <name>` Analyze input files, save inversion profile to `~/.negpro/`, then exit.
+
+* `--profile <name>` Use a previously saved inversion profile from `~/.negpro/`.
+
+#### Utility
+
+* `--save-config` Save current options as defaults in `~/.pprc/config.json` and exit. For example: `pprc --clip 2.5 --save-config`.
 
 * `--install-quick-action` / `--uninstall-quick-action` Install or remove the macOS Finder Quick Action.
 
@@ -192,11 +211,18 @@ Processed files will be saved to an `out/` subdirectory.
 
 You can save default settings in `~/.pprc/config.json` so they apply to every run without needing CLI flags. CLI flags always take priority over config values.
 
-For example, to always place output beside the input folder:
+The easiest way to create a config is with `--save-config`:
+
+```
+pprc --clip 2.5 --dir-out ../DIR_NAME_inverted --save-config
+```
+
+You can also manually create or edit `~/.pprc/config.json`:
 
 ```json
 {
-  "dirOut": "../DIR_NAME_inverted"
+  "dirOut": "../DIR_NAME_inverted",
+  "clip": 2.5
 }
 ```
 

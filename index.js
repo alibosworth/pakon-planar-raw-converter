@@ -44,7 +44,7 @@ var updateCheckInterval = distTag === 'alpha' ? 1000 * 60 * 60
                         : 1000 * 60 * 60 * 24;
 updateNotifier({ pkg, distTag, updateCheckInterval }).notify({ isGlobal: true });
 
-var [{ Worker }, { default: negpro, processImages }, { Command, Help, Option }] = await Promise.all([
+var [{ Worker }, { default: negpro, processImages, saveProfile, core }, { Command, Help, Option }] = await Promise.all([
   import('worker_threads'),
   import('negpro'),
   import('commander')
@@ -77,10 +77,13 @@ var BYTES_PER_CHANNEL = 2; // 16-bit
 
 var GROUP_HEADERS = {
   '--dir': 'Input/Output:',
-  '--no-invert': 'Processing Mode:',
+  '--mode': 'Processing Mode:',
   '--per-image-balancing': 'Tuning:',
+  '--save-profile': 'Profiles:',
+  '--save-config': 'Utility:',
   '--no-negfix': 'Deprecated:',
-  '--install-quick-action': 'Utility:',
+  '-V': '',
+  '-h': '',
 };
 
 var program = new Command();
@@ -89,20 +92,27 @@ program
   .option('--dir [dir]', 'Directory containing .raw files to process (default: current directory)')
   .option('--dir-out [dir]', `Output directory (use DIR_NAME for input folder name, start with '../' to place beside input)`, OUTPUT_DIR)
   .addOption(new Option('--output-dir [dir]', `Specify the output directory name`).hideHelp())
-  .option('--no-invert', 'Skip negative inversion, output raw tiffs for processing with another tool')
-  .option('--e6', 'Skip negative inversion, apply auto-level (for "Film Color: Positive" scans)')
-  .option('--bw', 'Invert, auto-level, and save in grey-scale colorspace')
-  .option('--bw-rgb', 'Invert, auto-level, and save in RGB colorspace')
+  .addOption(new Option('--mode <mode>', 'Processing mode').choices(['negative', 'raw', 'e6', 'bw', 'bw-rgb']).default('negative'))
   .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing')
   .option('--no-frame-rejection', 'Disable outlier frame rejection when computing shared inversion profile')
-  .option('--clip-black <percent>', 'Clip darkest N% to black during contrast stretch (negpro default: 0.1)')
-  .option('--clip-white <percent>', 'Clip brightest N% to white during contrast stretch (negpro default: 0.1)')
-  .option('--clip <percent>', 'Clip both black and white ends by N% during contrast stretch')
-  .option('--no-negfix', '[deprecated: use --no-invert] Skip negative inversion')
-  .option('--dimensions [width]x[height]', '[deprecated] Manually specify pixel dimensions for headerless raw files (e.g. "4000x2000")')
+  .option('--clip-black <percent>', 'Clip darkest N% to black during contrast stretch (default: 0.1)', parseFloat)
+  .option('--clip-white <percent>', 'Clip brightest N% to white during contrast stretch (default: 0.1)', parseFloat)
+  .option('--clip <percent>', 'Clip both black and white ends by N% during contrast stretch', parseFloat)
+  .option('--gamma <value>', 'Gamma correction applied during negative inversion (default: 2.15)', parseFloat)
+  .option('--no-stretch', 'Disable contrast stretch during inversion (default: enabled)')
+  .option('--border-exclude <percent>', 'Exclude outer N% of image from profiling and contrast stretch (default: 2)', parseFloat)
+  .option('--pixel-rejection-percentage <percent>', 'Ignore brightest/darkest N% of pixels when profiling (default: 0.1)', parseFloat)
+  .option('--save-profile <name>', 'Analyze input files, save inversion profile to ~/.negpro/, then exit')
+  .option('--profile <name>', 'Use a previously saved inversion profile from ~/.negpro/')
+  .option('--save-config', 'Save current options as defaults in ~/.pprc/config.json and exit')
   .addOption(new Option('--install-quick-action', 'Install macOS Finder right-click Quick Action for folders').hideHelp(process.platform !== 'darwin'))
   .addOption(new Option('--uninstall-quick-action', 'Remove the macOS Finder Quick Action').hideHelp(process.platform !== 'darwin'))
   .option('--examples', 'Show usage examples')
+  .option('--no-negfix', '[deprecated: use --mode raw] Skip negative inversion')
+  .option('--dimensions [width]x[height]', '[deprecated] Manually specify pixel dimensions for headerless raw files (e.g. "4000x2000")')
+  .option('--e6', '[deprecated: use --mode e6] Process slide film')
+  .option('--bw', '[deprecated: use --mode bw] Black & white greyscale')
+  .option('--bw-rgb', '[deprecated: use --mode bw-rgb] Black & white RGB')
   .version(pkg.version)
   .helpOption('-h, --help', 'Display this help screen')
   .configureHelp({
@@ -125,6 +135,15 @@ program
           }
         }
         result.push(line);
+        // Add mode descriptions after the --mode line
+        if (trimmed.startsWith('--mode')) {
+          var pad = '                                                  ';
+          result.push(pad + 'negative  Invert color negative, remove orange mask (default)');
+          result.push(pad + 'raw       Output unconverted tiffs for processing with another tool');
+          result.push(pad + 'e6        Slide film — no inversion, apply auto-level');
+          result.push(pad + 'bw        Black & white — invert, auto-level, greyscale output');
+          result.push(pad + 'bw-rgb    Black & white — invert, auto-level, RGB output');
+        }
       }
       return result.join('\n');
     },
@@ -144,27 +163,65 @@ if (opts.outputDir) {
 var pprcConfigDir = path.join(os.homedir(), '.pprc');
 var pprcConfigPath = path.join(pprcConfigDir, 'config.json');
 var pprcConfig = {};
-var pprcConfigApplied = {};
 
 if (fs.existsSync(pprcConfigPath)) {
   try {
-    pprcConfig = JSON.parse(fs.readFileSync(pprcConfigPath, 'utf8'));
+    var { metadata, ...parsedConfig } = JSON.parse(fs.readFileSync(pprcConfigPath, 'utf8'));
+    pprcConfig = parsedConfig;
   } catch (e) {
     console.warn(`Warning: Could not parse ${pprcConfigPath}: ${e.message}`);
   }
 
-  // Apply config values as defaults — CLI flags take priority
-  if (pprcConfig.dirOut && program.getOptionValueSource('dirOut') === 'default' && !opts.outputDir) {
-    opts.dirOut = pprcConfig.dirOut;
-    pprcConfigApplied.dirOut = pprcConfig.dirOut;
+  // Map of config keys to their commander option names and CLI flag names
+  // Each entry: [commander option name, CLI flag string]
+  var CONFIG_KEYS = {
+    dirOut:            ['dirOut',            '--dir-out'],
+    mode:              ['mode',              '--mode'],
+    perImageBalancing: ['perImageBalancing',  '--per-image-balancing'],
+    noFrameRejection:  ['frameRejection',    '--no-frame-rejection'],
+    clip:              ['clip',              '--clip'],
+    clipBlack:         ['clipBlack',         '--clip-black'],
+    clipWhite:         ['clipWhite',         '--clip-white'],
+    gamma:       ['gamma',       '--gamma'],
+    noStretch:         ['stretch',           '--no-stretch'],
+    borderExclude:     ['borderExclude',     '--border-exclude'],
+    pixelRejectionPercentage: ['pixelRejectionPercentage', '--pixel-rejection-percentage'],
+    profile:                  ['profile',                  '--profile'],
+  };
+
+  // Boolean flags where config key is the negated form (noInvert -> invert=false)
+  var NEGATED_BOOLEANS = { noFrameRejection: 'frameRejection', noStretch: 'stretch' };
+
+  var activeLines = [];
+  var overriddenLines = [];
+
+  for (var [configKey, [optName, cliFlag]] of Object.entries(CONFIG_KEYS)) {
+    if (pprcConfig[configKey] === undefined) continue;
+
+    var configVal = pprcConfig[configKey];
+
+    // Check if CLI explicitly set this option
+    var isFromCli = program.getOptionValueSource(optName) === 'cli';
+    if (configKey === 'dirOut' && opts.outputDir) isFromCli = true;
+
+    if (!isFromCli) {
+      // Apply config value
+      if (NEGATED_BOOLEANS[configKey]) {
+        opts[NEGATED_BOOLEANS[configKey]] = !configVal;
+      } else {
+        opts[optName] = configVal;
+      }
+      activeLines.push(`  ${configKey}: ${configVal}`);
+    } else {
+      var currentVal = NEGATED_BOOLEANS[configKey] ? !opts[NEGATED_BOOLEANS[configKey]] : opts[optName];
+      overriddenLines.push(`  ${configKey}: ${configVal} \x1b[2m(overridden by ${cliFlag} ${currentVal})\x1b[0m`);
+    }
   }
 
-  if (Object.keys(pprcConfigApplied).length > 0) {
-    var lines = [`Using pprc global config (${pprcConfigPath}):`];
-    Object.keys(pprcConfigApplied).forEach(function(key) {
-      lines.push(`  ${key}: ${pprcConfigApplied[key]}`);
-    });
-    console.log(lines.join("\n"));
+  if (activeLines.length > 0 || overriddenLines.length > 0) {
+    var configLines = [`\x1b[3mUsing pprc global config (${pprcConfigPath}):`];
+    configLines.push(...activeLines, ...overriddenLines);
+    console.log(configLines.join('\n') + '\x1b[0m');
   }
 }
 
@@ -200,13 +257,13 @@ Examples:
     pprc --dir-out /path/to/output
 
   Skip inversion — useful if you want to invert with another tool:
-    pprc --no-invert
+    pprc --mode raw
 
   Process slide film (E6) scans — no inversion needed, just auto-levels:
-    pprc --e6
+    pprc --mode e6
 
   Process black and white film — invert and auto-level in greyscale:
-    pprc --bw
+    pprc --mode bw
 
   Per-image balancing — useful when frames on a roll have very different exposures:
     pprc --per-image-balancing
@@ -220,8 +277,26 @@ Examples:
   Clip shadows and highlights separately:
     pprc --clip-black 0.5 --clip-white 0.1
 
+  Custom inversion gamma (default 2.15):
+    pprc --gamma 2.5
+
+  Disable contrast stretch:
+    pprc --no-stretch
+
+  Exclude outer 5% of image from profiling:
+    pprc --border-exclude 5
+
   Include all frames in color balancing, even outliers:
     pprc --no-frame-rejection
+
+  Analyze a roll and save its profile for reuse:
+    pprc --save-profile portra400
+
+  Use a previously saved negpro profile:
+    pprc --profile portra400
+
+  Save current options as global defaults:
+    pprc --clip 2.5 --save-config
 
   Install macOS Finder Quick Action — right-click folders to process:
     pprc --install-quick-action
@@ -232,13 +307,66 @@ Examples:
   process.exit(0);
 }
 
-// Handle deprecated --no-negfix flag
+// Handle deprecated flags
 if (opts.negfix === false) {
-  console.warn("Warning: --no-negfix is deprecated, use --no-invert instead");
-  opts.invert = false;
+  console.warn("Warning: --no-negfix is deprecated, use --mode raw instead");
+  opts.mode = 'raw';
+}
+if (opts.invert === false && program.getOptionValueSource('invert') !== 'default') {
+  console.warn("Warning: --no-invert is deprecated, use --mode raw instead");
+  opts.mode = 'raw';
+}
+if (opts.e6 && program.getOptionValueSource('e6') !== 'default') {
+  console.warn("Warning: --e6 is deprecated, use --mode e6 instead");
+  opts.mode = 'e6';
+}
+if (opts.bw && program.getOptionValueSource('bw') !== 'default') {
+  console.warn("Warning: --bw is deprecated, use --mode bw instead");
+  opts.mode = 'bw';
+}
+if (opts.bwRgb && program.getOptionValueSource('bwRgb') !== 'default') {
+  console.warn("Warning: --bw-rgb is deprecated, use --mode bw-rgb instead");
+  opts.mode = 'bw-rgb';
 }
 
-var noInvert = opts.invert === false || opts.e6 || opts.bw || opts.bwRgb;
+if (opts.profile) {
+  var profilePath = path.join(os.homedir(), '.negpro', `${opts.profile}.json`);
+  if (!fs.existsSync(profilePath)) {
+    exitWithError(`Profile '${opts.profile}' not found. Expected file: ${profilePath}\nUse --save-profile ${opts.profile} to create it.`);
+  }
+}
+
+if (opts.saveConfig) {
+  var config = {
+    metadata: {
+      pprcVersion: pkg.version,
+      createdAt: new Date().toISOString(),
+      _note: 'pprc global config. CLI flags override these values.',
+    },
+  };
+
+  if (opts.dirOut !== OUTPUT_DIR)     config.dirOut = opts.dirOut;
+  if (opts.mode !== 'negative')       config.mode = opts.mode;
+  if (opts.perImageBalancing)          config.perImageBalancing = true;
+  if (opts.frameRejection === false)   config.noFrameRejection = true;
+  if (opts.clip !== undefined)         config.clip = opts.clip;
+  if (opts.clipBlack !== undefined)    config.clipBlack = opts.clipBlack;
+  if (opts.clipWhite !== undefined)    config.clipWhite = opts.clipWhite;
+  if (opts.gamma !== undefined)        config.gamma = opts.gamma;
+  if (opts.stretch === false)          config.noStretch = true;
+  if (opts.borderExclude !== undefined) config.borderExclude = opts.borderExclude;
+  if (opts.pixelRejectionPercentage !== undefined) config.pixelRejectionPercentage = opts.pixelRejectionPercentage;
+  if (opts.profile)                    config.profile = opts.profile;
+
+  if (!fs.existsSync(pprcConfigDir)) {
+    fs.mkdirSync(pprcConfigDir, { recursive: true });
+  }
+  fs.writeFileSync(pprcConfigPath, JSON.stringify(config, null, 2) + '\n');
+  console.log(`Config saved to ${pprcConfigPath}`);
+  process.exit(0);
+}
+
+var noInvert = opts.mode === 'raw' || opts.mode === 'e6' || opts.mode === 'bw' || opts.mode === 'bw-rgb';
 
 // Resolve input directory and output paths
 var inputDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
@@ -307,13 +435,13 @@ if (opts.dir && !fs.existsSync(inputDir)) {
     convertTime = Date.now();
 
     if (noInvert) {
-      // buffers are actually file paths in --no-invert mode
+      // buffers are actually file paths in non-negative modes
       var verb;
-      if (opts.e6) {
+      if (opts.mode === 'e6') {
         verb = "auto-leveled";
-      } else if (opts.bw) {
+      } else if (opts.mode === 'bw') {
         verb = "inverted and auto-leveled greyscale";
-      } else if (opts.bwRgb) {
+      } else if (opts.mode === 'bw-rgb') {
         verb = "inverted and auto-leveled RGB";
       } else {
         verb = "raw";
@@ -322,10 +450,51 @@ if (opts.dir && !fs.existsSync(inputDir)) {
       console.log(`${buffers.length} ${buffers.length === 1 ? "file" : "files"} saved to '${tiffDir}' as ${verb} TIFF.`);
       if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms\x1b[0m`);
       saveLastRunConfig();
+    } else if (opts.saveProfile) {
+      saveProfileFromBuffers(buffers);
     } else {
       invertBuffersWithNegpro(buffers);
     }
   });
+
+  function saveProfileFromBuffers(buffers) {
+    var images = buffers.map(function(buf) {
+      return { pixels: buf.pixels, width: buf.width, height: buf.height, name: buf.name };
+    });
+
+    var totalFiles = images.length;
+    var gamma = opts.gamma !== undefined ? opts.gamma : 2.15;
+    var outlierRejection = opts.pixelRejectionPercentage !== undefined ? opts.pixelRejectionPercentage : 0.1;
+    var frameRejectionEnabled = opts.frameRejection !== false;
+
+    console.log("Analyzing images to compute inversion profile");
+
+    // Analyze each image
+    var allStats = images.map(function(img, i) {
+      var stats = core.analyzePixels(img.pixels, img.width * img.height, outlierRejection);
+      process.stdout.write(`\r${images.slice(0, i + 1).map(function() { return '▰'; }).join(' ')}${images.slice(i + 1).map(function() { return '▱'; }).join(' ')}`);
+      return stats;
+    });
+    process.stdout.write("\n");
+
+    // Frame rejection
+    var statsForProfile = allStats;
+    if (frameRejectionEnabled && totalFiles > 2) {
+      var rejection = core.rejectOutlierFrames(allStats);
+      if (rejection.rejected.length > 0) {
+        statsForProfile = rejection.included.map(function(i) { return allStats[i]; });
+        var lines = [`\x1b[33mRejected ${rejection.rejected.length} frame(s) from profile (use --no-frame-rejection to include all):`];
+        rejection.rejected.forEach(function(i) {
+          lines.push(`  ${images[i].name}.raw`);
+        });
+        console.log(lines.join('\n') + '\x1b[0m');
+      }
+    }
+
+    var profile = core.computeProfile(statsForProfile, gamma);
+    saveProfile(opts.saveProfile, profile);
+    console.log(`\n✨ Profile saved as '${opts.saveProfile}'`);
+  }
 
   function invertBuffersWithNegpro(buffers) {
     // Build InputBuffer array for negpro's processImages
@@ -434,6 +603,21 @@ if (opts.dir && !fs.existsSync(inputDir)) {
     if (opts.clipWhite !== undefined) {
       negproOpts.clipWhite = parseFloat(opts.clipWhite);
     }
+    if (opts.gamma !== undefined) {
+      negproOpts.gamma = opts.gamma;
+    }
+    if (opts.stretch === false) {
+      negproOpts.contrastStretch = false;
+    }
+    if (opts.borderExclude !== undefined) {
+      negproOpts.borderExclude = opts.borderExclude;
+    }
+    if (opts.pixelRejectionPercentage !== undefined) {
+      negproOpts.outlierRejection = opts.pixelRejectionPercentage;
+    }
+    if (opts.profile) {
+      negproOpts.useProfile = opts.profile;
+    }
 
     processImages(images, negproOpts).then(function(results) {
       process.stdout.write("\n");
@@ -485,10 +669,26 @@ function saveLastRunConfig() {
       metadata: {
         pprcVersion: pkg.version,
         createdAt: new Date().toISOString(),
-        note: "Copy this file to config.json to reuse these settings: cp ~/.pprc/last_run_config.json ~/.pprc/config.json"
+        note: process.platform === 'win32'
+          ? `Copy this file to config.json to reuse these settings: copy "%USERPROFILE%\\.pprc\\last_run_config.json" "%USERPROFILE%\\.pprc\\config.json"`
+          : 'Copy this file to config.json to reuse these settings: cp ~/.pprc/last_run_config.json ~/.pprc/config.json'
       },
-      dirOut: opts.dirOut
     };
+
+    // Save all non-default option values
+    if (opts.dirOut !== OUTPUT_DIR)     lastRun.dirOut = opts.dirOut;
+    if (opts.mode !== 'negative')       lastRun.mode = opts.mode;
+    if (opts.perImageBalancing)          lastRun.perImageBalancing = true;
+    if (opts.frameRejection === false)   lastRun.noFrameRejection = true;
+    if (opts.clip !== undefined)         lastRun.clip = opts.clip;
+    if (opts.clipBlack !== undefined)    lastRun.clipBlack = opts.clipBlack;
+    if (opts.clipWhite !== undefined)    lastRun.clipWhite = opts.clipWhite;
+    if (opts.gamma !== undefined)  lastRun.gamma = opts.gamma;
+    if (opts.stretch === false)          lastRun.noStretch = true;
+    if (opts.borderExclude !== undefined) lastRun.borderExclude = opts.borderExclude;
+    if (opts.pixelRejectionPercentage !== undefined) lastRun.pixelRejectionPercentage = opts.pixelRejectionPercentage;
+    if (opts.profile)                   lastRun.profile = opts.profile;
+
     fs.writeFileSync(path.join(pprcConfigDir, 'last_run_config.json'), JSON.stringify(lastRun, null, 2) + '\n');
   } catch (e) {
     // Non-critical, don't interrupt the user
@@ -674,10 +874,7 @@ function convertRawToTiff (name, fileInfo) {
   var destinationFile = noInvert ? path.join(tiffDir, `${baseName}.tif`) : null;
   var returnBuffer = !noInvert;
 
-  var mode = 'default';
-  if (opts.e6) mode = 'e6';
-  else if (opts.bw) mode = 'bw';
-  else if (opts.bwRgb) mode = 'bw-rgb';
+  var mode = opts.mode === 'negative' ? 'default' : opts.mode;
 
   return new Promise(function(resolve, reject) {
     var worker = new Worker(path.join(__dirname, 'lib', 'convert-worker.js'), {
