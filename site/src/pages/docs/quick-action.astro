@@ -1,0 +1,54 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+
+<Docs title="macOS Quick Action">
+  <h1>macOS Quick Action</h1>
+  <p>
+    PPRC includes a Finder Quick Action that lets you right-click any folder of raw files
+    and select "Process with PPRC" — no terminal needed.
+  </p>
+
+  <h2>Install</h2>
+  <pre><code>pprc --install-quick-action</code></pre>
+  <p>
+    This generates and installs an Automator workflow to
+    <code>~/Library/Services/</code>. A Terminal window will open showing
+    PPRC's progress when you use the action.
+  </p>
+
+  <h2>Enable in Finder</h2>
+  <p>After installing, you may need to enable the extension in System Settings:</p>
+
+  <h3>macOS Sequoia (15+)</h3>
+  <p>System Settings &rarr; General &rarr; Login Items &amp; Extensions &rarr; Extensions &rarr; Finder</p>
+
+  <h3>macOS Ventura / Sonoma (13–14)</h3>
+  <p>System Settings &rarr; Privacy &amp; Security &rarr; Extensions &rarr; Finder</p>
+
+  <h3>macOS Monterey and older</h3>
+  <p>System Preferences &rarr; Extensions &rarr; Finder</p>
+
+  <div class="screenshot-placeholder" style="background: var(--bg-elevated); border: 1px dashed var(--border); border-radius: 8px; padding: 3rem 1.5rem; text-align: center; color: var(--text-dim); margin: 1.5rem 0;">
+    <!-- TODO: Replace with actual screenshot of Finder Quick Action context menu -->
+    Screenshot: Finder right-click menu showing "Process with PPRC"
+  </div>
+
+  <h2>Usage</h2>
+  <ol>
+    <li>Right-click a folder containing <code>.raw</code> files in Finder</li>
+    <li>Select <strong>Quick Actions</strong> &rarr; <strong>Process with PPRC</strong></li>
+    <li>A Terminal window opens showing progress</li>
+    <li>Processed TIFFs appear in the output directory</li>
+  </ol>
+
+  <h2>Uninstall</h2>
+  <pre><code>pprc --uninstall-quick-action</code></pre>
+
+  <h2>How it works</h2>
+  <p>
+    The Quick Action is an Automator <code>.workflow</code> bundle that runs a shell script.
+    It opens Terminal and sources your shell profile so that the <code>pprc</code> command is
+    available without hardcoded paths. Your global config settings are respected automatically.
+  </p>
+</Docs>

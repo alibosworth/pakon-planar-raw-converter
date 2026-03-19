@@ -1,0 +1,72 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'Batch-convert Pakon planar raw files into full 16-bit TIFFs with orange mask removal.' } = Astro.props;
+const currentPath = Astro.url.pathname;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a href="/" class="site-logo">PPRC</a>
+        <button class="nav-toggle" aria-label="Toggle menu">&#9776;</button>
+        <nav class="site-nav">
+          <a href="/docs/getting-started" class:list={[{ 'aria-current': currentPath.startsWith('/docs') ? 'page' : undefined }]}>Docs</a>
+          <a href="/changelog" class:list={[{ 'aria-current': currentPath === '/changelog' ? 'page' : undefined }]}>Changelog</a>
+          <a href="https://github.com/alibosworth/pakon-planar-raw-converter" target="_blank" rel="noopener">GitHub</a>
+          <a href="/#install" class="nav-cta">Install</a>
+        </nav>
+      </div>
+    </header>
+
+    <slot />
+
+    <footer class="site-footer">
+      <div class="container">
+        <div class="footer-grid">
+          <div class="footer-col">
+            <h4>Docs</h4>
+            <a href="/docs/getting-started">Getting Started</a>
+            <a href="/docs/examples">Examples</a>
+            <a href="/docs/faq">FAQ</a>
+          </div>
+          <div class="footer-col">
+            <h4>Resources</h4>
+            <a href="/changelog">Changelog</a>
+            <a href="https://github.com/alibosworth/pakon-planar-raw-converter" target="_blank" rel="noopener">GitHub</a>
+            <a href="https://www.npmjs.com/package/pakon-planar-raw-converter" target="_blank" rel="noopener">npm</a>
+          </div>
+          <div class="footer-col">
+            <h4>Community</h4>
+            <a href="mailto:ali@alibosworth.com">Contact</a>
+            <a href="https://ko-fi.com/alibosworth" target="_blank" rel="noopener">Support (Ko-fi)</a>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          &copy; {new Date().getFullYear()} PPRC
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      document.querySelector('.nav-toggle')?.addEventListener('click', () => {
+        document.querySelector('.site-nav')?.classList.toggle('open');
+      });
+    </script>
+  </body>
+</html>
+
+<style is:global>
+  @import '../styles/global.css';
+</style>

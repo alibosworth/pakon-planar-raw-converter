@@ -1,0 +1,58 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+
+<Docs title="Scanning">
+  <h1>Scanning</h1>
+  <p>
+    To get the best results from PPRC, scan with TLXClientDemo and save as planar raw files
+    with file headers. Here's the process:
+  </p>
+
+  <h2>1. Scan your negatives</h2>
+  <ol>
+    <li>Run TLXClientDemo</li>
+    <li>Click "Scan"</li>
+    <li>Select <strong>Film Color: "Negative"</strong></li>
+    <li>Choose any Resolution</li>
+    <li>Choose the appropriate "Frames Per Strip" option</li>
+    <li>Optionally enable "Scratch Removal"</li>
+    <li>Click "Scan" and let it complete</li>
+  </ol>
+
+  <div class="screenshot-placeholder" style="background: var(--bg-elevated); border: 1px dashed var(--border); border-radius: 8px; padding: 3rem 1.5rem; text-align: center; color: var(--text-dim); margin: 1.5rem 0;">
+    <!-- TODO: Replace with screenshot of TLXClientDemo scan settings -->
+    Screenshot: TLXClientDemo scan settings dialog
+  </div>
+
+  <h2>2. Move to Save Group</h2>
+  <p>Click <strong>"Move Oldest Roll in Scan Group To Save Group"</strong>.</p>
+  <p>You can now review your scans using "Previous" and "Next" and optionally correct framing.</p>
+
+  <h2>3. Save as planar raw</h2>
+  <ol>
+    <li>Click "Save" and set the save options:</li>
+    <li><strong>"All Pictures (except hidden)"</strong></li>
+    <li><strong>"Original Height and Width"</strong></li>
+    <li><strong>"Other Options"</strong>: uncheck everything except "Use Scratch Removal" if enabled</li>
+    <li><strong>"Type of Save Operation"</strong>: "To Client Memory"</li>
+    <li><strong>"Planar"</strong> with <strong>"Add File Header"</strong> enabled</li>
+    <li>Click "OK"</li>
+  </ol>
+
+  <div class="screenshot-placeholder" style="background: var(--bg-elevated); border: 1px dashed var(--border); border-radius: 8px; padding: 3rem 1.5rem; text-align: center; color: var(--text-dim); margin: 1.5rem 0;">
+    <!-- TODO: Replace with screenshot of TLXClientDemo save settings -->
+    Screenshot: TLXClientDemo save settings dialog
+  </div>
+
+  <p>
+    Once complete, <code>C:\Temp</code> will contain your 16-bit planar raw files, ready to copy to another computer and process with PPRC.
+  </p>
+
+  <h2>Scratch removal</h2>
+  <p>
+    Enabling "Scratch Removal" at the scanning and saving steps lets TLXClientDemo remove dust
+    and scratches automatically. Note: there is currently no way to export the IR scan data with
+    your <code>.raw</code> files.
+  </p>
+</Docs>

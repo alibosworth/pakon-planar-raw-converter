@@ -37,8 +37,8 @@ permalink: /dimensions/
 <body>
 <title>Calculate Pakon 135 dimensions based on file size</title>
 
-<p>Standard Pakon F135 file sizes are 3000x2000, 2250x1500, and 1500x1000 (Base 16, 8, and 4).  If you have a file that isn't one of these (for instance if you are scanning half-frame or XPan), you will need to pass the dimensions to pprc via `pprc --dimensions [width]x[height]`.  This calculator helps you determine the dimensions by allowing you to enter the file size in bytes. </p>
-<p><strong>If you are saving new raw files, choose "Add File Header" because the upcoming version of PPRC (1.0) automatically detects the image size from the file header making the `--dimensions` option unnecessary even when using custom sizes.</strong></p>
+<p>Standard Pakon F135 file sizes are 3000x2000, 2250x1500, and 1500x1000 (Base 16, 8, and 4). PPRC automatically detects dimensions from file headers and known file sizes, so this calculator is only needed if you have headerless files with non-standard dimensions.</p>
+<p><strong>When saving raw files in TLXClientDemo, always choose "Add File Header" — PPRC reads dimensions directly from the header, making manual dimension specification unnecessary.</strong></p>
 <form id="form">
   <label>enter .raw file size in bytes:</label>
   <input id="size-input" placeholder="36000000" value="" required pattern="[0-9,]*"/>

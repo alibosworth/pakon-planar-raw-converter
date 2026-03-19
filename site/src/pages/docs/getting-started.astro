@@ -1,0 +1,60 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+
+<Docs title="Getting Started">
+  <h1>Getting Started</h1>
+  <p>
+    PPRC batch-converts Pakon F135/F135+ planar raw files into full 16-bit TIFFs
+    with the orange mask removed, giving you the highest-quality starting point for
+    your editing workflow.
+  </p>
+
+  <h2>Prerequisites</h2>
+  <p>You'll need <a href="https://nodejs.org/en/download" target="_blank" rel="noopener">Node.js</a> installed (v22 or later — v22 has significant performance improvements over earlier versions).</p>
+
+  <h2>Install</h2>
+  <p>Install PPRC globally via npm:</p>
+  <pre><code>npm i -g pakon-planar-raw-converter --foreground-scripts</code></pre>
+  <p>
+    <em>The <code>--foreground-scripts</code> flag lets PPRC show a welcome message after install,
+    but isn't strictly necessary.</em>
+  </p>
+
+  <h2>Quick start</h2>
+  <p>First, open a terminal:</p>
+  <ul>
+    <li><strong>Mac:</strong> Press CMD+Space, type "terminal", hit Return</li>
+    <li><strong>Windows:</strong> Open the Start menu, search for "cmd", and run it</li>
+  </ul>
+  <p>
+    Then navigate to your folder of <code>.raw</code> files. The easiest way is to type
+    <code>cd </code> (with a space) and then drag the folder from Finder or Explorer into the
+    terminal window. Press Enter, then run:
+  </p>
+  <pre><code>pprc</code></pre>
+  <p>Processed files will be saved to an <code>out/</code> subdirectory.</p>
+  <p>
+    For best color consistency, process a whole roll together when possible. PPRC's default
+    inversion analyzes the batch as a group, which helps keep results consistent across frames
+    and makes outlier-frame rejection more reliable.
+  </p>
+
+  <h2>macOS Finder Quick Action</h2>
+  <p>
+    On macOS, run <code>pprc --install-quick-action</code> to add a Finder Quick Action.
+    You can then right-click any folder of raw files and select "Process with PPRC" — no terminal needed.
+  </p>
+
+  <h2>Updating</h2>
+  <p>
+    PPRC will notify you when a new version is available. You can update at any time:
+  </p>
+  <pre><code>npm update -g pakon-planar-raw-converter --foreground-scripts</code></pre>
+
+  <h2>Windows XP Note</h2>
+  <p>
+    Please do not try to run PPRC on Windows XP. Everything will be easier and faster
+    if you install on a more modern OS. There is no need to run PPRC from the computer you scanned on.
+  </p>
+</Docs>

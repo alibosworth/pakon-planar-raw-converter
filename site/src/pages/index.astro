@@ -1,0 +1,154 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="PPRC — Pakon Planar Raw Converter">
+  <main>
+    <section class="hero">
+      <div class="container">
+        <h1>PPRC</h1>
+        <p class="subtitle">
+          Batch-convert Pakon F135+ planar raw files into full 16-bit TIFFs with
+          orange mask removal. A whole roll in seconds.
+        </p>
+        <div class="hero-ctas">
+          <a href="/docs/getting-started" class="btn btn-primary">Get Started</a>
+          <a href="https://github.com/alibosworth/pakon-planar-raw-converter" class="btn btn-secondary" target="_blank" rel="noopener">View on GitHub</a>
+        </div>
+      </div>
+    </section>
+
+    <div class="hero-media">
+      <div class="video-player" style="max-width:572px; max-height:513px; margin: 0 auto;">
+        <video muted playsinline preload="metadata" src="/videos/pprc-hero-vid-light-web.mp4" aria-label="Video demonstrating PPRC .raw to .tiff conversion of Pakon F135+ 16-bit raw files. 38 files converted in 2.7 seconds"></video>
+        <div class="video-overlay">
+          <button class="play-btn" aria-label="Play video">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <polygon points="18,14 36,24 18,34" fill="currentColor"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <section class="features">
+      <div class="container">
+        <h2>Features</h2>
+        <div class="features-grid">
+          <div class="feature-card">
+            <h3>Full 16-bit Output</h3>
+            <p>Uses the full scan data your Pakon captured, avoiding the 8-bit limitations of standard exports and leaving more room to edit.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Robust Orange Mask Removal</h3>
+            <p>Analyzes whole rolls to determine an accurate color baseline, automatically identifying outlier frames so they don't skew the result.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Batch-First Workflow</h3>
+            <p>Designed for folders of scans, not one-image-at-a-time tweaking. Point it at a roll and get a cohesive set of editable TIFFs back.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Neutral &amp; Editable</h3>
+            <p>Output is intentionally neutral and data-rich, giving you maximum editing headroom in your preferred workflow.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Blazing Fast</h3>
+            <p>Carefully optimized, multi-threaded pipeline. A full roll processes in seconds, not minutes.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Automatic Dimension Detection</h3>
+            <p>Automatically detects frame dimensions: half frame, XPan, and other non-standard formats just work.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Tunable &amp; Repeatable</h3>
+            <p>Tune clipping, gamma, border exclusion, and pixel rejection, then save profiles or defaults so future batches start from the same baseline.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Slide Film &amp; B&amp;W</h3>
+            <p>Not just C-41. Use <code>--mode e6</code> for slide film or <code>--mode bw</code> for black and white — no inversion, just clean 16-bit output.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Works With Your Tools</h3>
+            <p>Use <code>--mode raw</code> to get uninverted linear 16-bit TIFFs for use with any other inversion tool.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Flexible Output Naming</h3>
+            <p>Dynamic folder naming and flexible output placement make batch exports easier to manage.</p>
+          </div>
+          <div class="feature-card">
+            <h3>Cross-Platform</h3>
+            <p>Works on macOS, Windows, and Linux. Scan on your Pakon machine, process anywhere.</p>
+          </div>
+          <div class="feature-card">
+            <h3>macOS Quick Action</h3>
+            <p>Right-click any folder and select "Process with PPRC". No terminal needed.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq">
+      <div class="container">
+        <h2>FAQ</h2>
+
+        <div class="faq-item">
+          <h3>Is the command line difficult to use?</h3>
+          <p>Once installed, it's a single command. On macOS you can install a Finder Quick Action to get a right-click "Process with PPRC" option — no terminal needed.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Why not just use PSI's built-in saving?</h3>
+          <p>PSI produces decent images but works with 16-bit data internally then discards half of it when saving to 8-bit. PPRC preserves the full 16-bit data and gives you a neutral starting point with more dynamic range.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Why use TLXClientDemo instead of PSI for raw files?</h3>
+          <p>PSI can only export 8-bit files, even when exporting "raw" TIFFs. This shows up as artifacting and quantization in highlights. TLXClientDemo's planar raw output preserves the full 16-bit data.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Can I use my own inversion tool instead?</h3>
+          <p>Yes: run with <code>--mode raw</code> to get 16-bit TIFFs without orange mask removal, ready for Negative Lab Pro, ColorPerfect, Vuescan, or any other tool.</p>
+        </div>
+
+        <div class="faq-item">
+          <h3>How does the color inversion work?</h3>
+          <p>All images in a batch are analyzed together to compute a shared color profile. Extreme pixels and outlier frames are excluded so dust spots and backlit shots don't skew the results. For best consistency, process a whole roll together when possible instead of splitting it into small batches. You can tune this behavior with CLI options or a global config file.</p>
+        </div>
+        <p style="margin-top: 1.5rem;"><a href="/docs/faq">See all questions →</a></p>
+      </div>
+    </section>
+
+    <section id="install" class="hero" style="padding: 3rem 0 5rem;">
+      <div class="container">
+        <h2 style="font-size: 1.75rem; margin-bottom: 1rem;">Get started</h2>
+        <p class="subtitle" style="margin-bottom: 1.5rem;">You'll need <a href="https://nodejs.org/en/download" target="_blank" rel="noopener">Node.js v22+</a> installed, then install PPRC globally via npm. For best results, run a whole roll together when possible.</p>
+        <pre style="display: inline-block; text-align: left; max-width: 500px;"><code>npm i -g pakon-planar-raw-converter
+pprc --dir /path/to/raw/files</code></pre>
+        <div class="hero-ctas" style="margin-top: 2rem;">
+          <a href="/docs/getting-started" class="btn btn-primary">Read the Docs</a>
+          <a href="/changelog" class="btn btn-secondary">View Changelog</a>
+        </div>
+      </div>
+    </section>
+  </main>
+</Base>
+
+<script>
+  const player = document.querySelector('.video-player');
+  const video = player?.querySelector('video');
+  const overlay = player?.querySelector('.video-overlay');
+
+  if (video && overlay) {
+    overlay.addEventListener('click', () => {
+      overlay.classList.add('hidden');
+      video.currentTime = 0;
+      video.play();
+    });
+
+    video.addEventListener('ended', () => {
+      video.pause();
+      overlay.classList.remove('hidden');
+    });
+  }
+</script>

@@ -1,0 +1,95 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+
+<Docs title="Examples">
+  <h1>Examples</h1>
+
+  <h2>Basic usage</h2>
+  <p>Process the current directory:</p>
+  <pre><code>cd /path/to/raw/files
+pprc</code></pre>
+
+  <p>Or point at a directory:</p>
+  <pre><code>pprc --dir /path/to/raw/files</code></pre>
+
+  <h2>Custom output directory</h2>
+  <p>By default, output goes to an <code>out</code> subdirectory inside the input folder. If <code>out</code> already exists, it auto-increments (<code>out_2</code>, <code>out_3</code>, etc.).</p>
+
+  <p>Output to a named subdirectory instead:</p>
+  <pre><code>pprc --dir-out inverted</code></pre>
+
+  <p>Or an absolute path:</p>
+  <pre><code>pprc --dir-out /Users/ali/Desktop/scans_output</code></pre>
+  <p><em>If that absolute directory already exists, PPRC will stop with an error instead of auto-incrementing it.</em></p>
+
+  <p>Place output beside the input folder using <code>../</code>:</p>
+  <pre><code>pprc --dir-out ../inverted</code></pre>
+  <p>
+    <em>Relative paths like <code>../</code> are resolved relative to the input directory (<code>--dir</code>),
+    not the current working directory.</em>
+  </p>
+
+  <p>Use the <code>DIR_NAME</code> placeholder to include the input folder's name:</p>
+  <pre><code># If input folder is "roll_042", outputs to "roll_042_inverted"
+pprc --dir-out DIR_NAME_inverted</code></pre>
+
+  <p>Combine both to place a named output beside the input folder:</p>
+  <pre><code># If input folder is "roll_042", outputs to "../roll_042_inverted"
+pprc --dir-out ../DIR_NAME_inverted</code></pre>
+
+  <h2>Skip inversion (for use with other tools)</h2>
+  <p>Get raw 16-bit TIFFs without orange mask removal, ready for Negative Lab Pro, ColorPerfect, etc.:</p>
+  <pre><code>pprc --mode raw</code></pre>
+
+  <h2>Slide film (E6)</h2>
+  <p>For positive/slide film scans:</p>
+  <pre><code>pprc --mode e6</code></pre>
+  <p><em>Skips inversion, applies contrast stretch.</em></p>
+
+  <h2>Black and white</h2>
+  <p>Greyscale output:</p>
+  <pre><code>pprc --mode bw</code></pre>
+
+  <p>B&amp;W but keep RGB channels (useful for toning in post):</p>
+  <pre><code>pprc --mode bw-rgb</code></pre>
+
+  <h2>More contrast</h2>
+  <p>Clip 1% on each end for punchier results:</p>
+  <pre><code>pprc --clip 1</code></pre>
+
+  <p>Or clip black and white independently:</p>
+  <pre><code>pprc --clip-black 0.5 --clip-white 0.2</code></pre>
+
+  <h2>Custom gamma</h2>
+  <p>Adjust the inversion gamma (default: 2.15):</p>
+  <pre><code>pprc --gamma 2.5</code></pre>
+
+  <h2>Disable contrast stretch</h2>
+  <pre><code>pprc --no-stretch</code></pre>
+
+  <h2>Per-image balancing</h2>
+  <p>Compute a separate profile for each frame instead of sharing one across the roll:</p>
+  <pre><code>pprc --per-image-balancing</code></pre>
+
+  <h2>Include all frames in profile</h2>
+  <p>Disable outlier frame rejection (useful if your roll has intentionally varied exposures):</p>
+  <pre><code>pprc --no-frame-rejection</code></pre>
+
+  <h2>Save and reuse a profile</h2>
+  <p>Create a named profile from a well-exposed reference roll:</p>
+  <pre><code>pprc --save-profile portra400 --dir /path/to/reference/roll</code></pre>
+
+  <p>Then apply that profile to future rolls of the same stock:</p>
+  <pre><code>pprc --profile portra400</code></pre>
+  <p>Profiles are stored in <code>~/.pprc/profiles/&lt;name&gt;.json</code> (<code>%USERPROFILE%\.pprc\profiles\&lt;name&gt;.json</code> on Windows).</p>
+
+  <h2>Save global defaults</h2>
+  <p>Save your preferred options so they apply to every run:</p>
+  <pre><code>pprc --clip 2.5 --dir-out ../DIR_NAME_inverted --save-config</code></pre>
+  <p><em>Defaults are saved to <code>~/.pprc/config.json</code> (<code>%USERPROFILE%\.pprc\config.json</code> on Windows).</em></p>
+
+  <h2>Combining options</h2>
+  <p>Per-image balancing with extra contrast, output beside the input folder:</p>
+  <pre><code>pprc --per-image-balancing --clip 0.5 --dir-out ../DIR_NAME_pprc</code></pre>
+</Docs>
