@@ -25,6 +25,7 @@
   "scripts": {
     "postinstall": "node index.js --postinstall || true",
     "run-docs-site": "cp README.md docs/_readme.md && cd docs && bundle exec jekyll serve",
+    "run-site": "cd site && npm run dev",
     "test": "node tests/test.js",
     "publish-alpha": "npm publish --tag alpha",
     "publish-beta": "npm publish --tag beta"
