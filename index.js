@@ -646,7 +646,7 @@ function convertRawFilesToTiff (data) {
   renderConvertProgress();
 
   // Limit concurrent workers to CPU count to reduce peak memory
-  var maxConcurrency = os.cpus().length;
+  var maxConcurrency = Math.max(1, os.cpus().length - 1);
   var results = new Array(items.length);
   var nextIndex = 0;
 
