@@ -1,2 +1,9 @@
 tests/
 docs/
+.claude/
+TODO.md
+.private
+*.bun-build
+pprc-bin
+web/
+site/

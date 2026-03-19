@@ -1,7 +1,7 @@
 {
   "name": "pakon-planar-raw-converter",
-  "version": "0.0.13",
-  "description": "A script to convert Pakon F-135+ Planar RAW scans from TLXClientDemo into usable files via ImageMagick's Convert and NegFix8",
+  "version": "1.0.0-beta.20260318-01",
+  "description": "A script to convert Pakon F-135+ Planar RAW scans from TLXClientDemo into usable files",
   "keywords": [
     "kodak",
     "pakon",
@@ -16,17 +16,22 @@
     "raw",
     "planar",
     "linear",
-    "imagemagick",
     "negfix8",
+    "negpro",
     "photography",
     "35mm",
     "images"
   ],
   "scripts": {
-    "run-docs-site": "cp README.md docs/_readme.md && cd docs && bundle exec jekyll serve"
+    "postinstall": "node index.js --postinstall || true",
+    "run-docs-site": "cp README.md docs/_readme.md && cd docs && bundle exec jekyll serve",
+    "test": "node tests/test.js",
+    "publish-alpha": "npm publish --tag alpha",
+    "publish-beta": "npm publish --tag beta"
   },
+  "type": "module",
   "main": "index.js",
-  "author": "Ali Bosworth <ali@alibosworth.com> (http://alibosworth.com/)",
+  "author": "Ali Bosworth <ali@alibosworth.com> (https://alibosworth.com/)",
   "license": "GPL-3.0",
   "bin": {
     "pakon-planar-raw-converter": "./index.js",
@@ -35,9 +40,8 @@
   "preferGlobal": true,
   "dependencies": {
     "bluebird": "^3.5.1",
-    "child-process-promise": "^2.2.1",
-    "command-exists": "^1.2.2",
-    "commander": "^2.12.2",
-    "glob": "^7.1.2"
+    "commander": "^12.1.0",
+    "negpro": "*",
+    "update-notifier": "^7.3.1"
   }
 }

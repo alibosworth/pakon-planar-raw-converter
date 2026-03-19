@@ -1,77 +1,96 @@
 # Pakon Planar Raw Converter (PPRC)
 
-This is a small script to automate the process of converting the 16-bit Planar Raw files produced by TLXClientDemo into useful images.  Behind the scenes [ImageMagick](http://www.imagemagick.org/) is used to convert the planar file to a 16-bit TIFF and [Negfix8](https://sites.google.com/site/negfix/) is optionally used to invert/balance the negative scan.
+PPRC is a blazing fast (whole roll in seconds) tool that batch-converts Pakon F135/F135+ "planar" raw files into full 16-bit TIFFs with the orange mask removed giving you the highest-quality starting point for your editing workflow. Extensive customization options (output directory name and location, inversion tuning) can be saved to a global config so every run uses your preferred settings automatically.
 
-The result of this is "normal" looking files that contain all the data that the Pakon 135+ is able to save, or optionally just dark/orange negative "linear scan" TIFF files that you can then process via tools like [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  Additionally the "--e6", "--bw", or "--bw-rgb" options may be used to perform additional steps via ImageMagick on the TIFF file instead of Negfix8.  You may need to use the [TLX_ScanEnable](https://github.com/sgharvey/pakon-tlx-addons) AutoIt script to enable B&W and Positive scanning modes that make these options useful.
+<figure>
+  <video muted playsinline loop autoplay controls src="https://github.com/user-attachments/assets/146c72cc-9ab9-44ae-bf60-47754c25bcde" width="100%"></video>
+  <figcaption>Video of most basic usage (via macOS Quick Action)</figcaption>
+</figure>
 
-The benefit of using this workflow is that you get the full 16-bits worth of image data rather than only the 8-bit files exported by PSI.  [Here are some comparisons](https://alibosworth.github.io/pakon-planar-raw-converter/comparison/) of standard PSI output vs TLXCD raw output.
+## Why use PPRC?
 
-Technically, PSI itself can also export raw files, but they suffer from being only 8-bit which leads to occasional image quality issues [such as these](https://alibosworth.github.io/pakon-planar-raw-converter/8bit_raw_highlight_issue/).
+The Pakon F135/F135+ captures 15 bits of data per channel internally, but its standard output options throw much of that away. PSI exports are 8-bit even when saving TIFFs. PSI's "raw" exports are quantized 8-bit files. TLXClientDemo.exe can save the full 16-bit planar data, but the resulting `.raw` files aren't directly usable by most tools.
 
-When scanning via TLX you can scan in any resolution ("base"), with or without the header option.  You must avoid rotating the images before saving, and none of the checkboxes in the "other options" section of the save dialog should be checked except for "use scratch removal" if you have scanned with IR.
+PPRC takes those raw files and:
+
+1. Converts the planar data to standard interleaved 16-bit TIFFs
+2. Analyzes the entire roll to compute a shared color profile
+3. Removes the orange mask and inverts the negative
+4. Outputs files ready to import into Lightroom, Capture One, Bridge, or any editor that handles 16-bit TIFFs
+
+The result is images that preserve all the data your scanner captured: the best possible starting point for your editing.
+
+[Here are some comparisons](https://alibosworth.github.io/pakon-planar-raw-converter/comparison/) of standard PSI output vs PPRC output. And [here are examples](https://alibosworth.github.io/pakon-planar-raw-converter/8bit_raw_highlight_issue/) of the quality issues caused by PSI's 8-bit limitation.
+
+
+## What PPRC is not
+
+PPRC is not a full-featured negative inversion editor. It does not offer per-image film base selection, manual color correction, or creative grading controls. Tools like [Negative Lab Pro](https://www.negativelabpro.com/), [Grain2Pixel](https://grain2pixel.com/), [ColorNeg](https://www.colorperfect.com/colorneg.html), or [NegPy](https://github.com/marcinz606/NegPy) are designed for that.
+
+PPRC's output is intentionally neutral and data-rich rather than punchy or stylized. Images will look flatter than what you'd get from a more aggressive inversion tool, and this is by design. The goal is to preserve maximum editing headroom so you can make decisions yourself via your preferred workflow.
+
+If you want to use your own orange mask removal process, run with `--mode raw` to get raw data as 16-bit TIFF files to pipe through Negative Lab Pro, ColorPerfect, Vuescan, or any other tool.
+
+## How does the color inversion work?
+
+The inversion and orange mask removal is done by a new tool I've built called negpro (pending link). By default, all images in a batch are analyzed together to compute a shared color profile. This produces more consistent results across a roll than analyzing each frame individually.
+
+During analysis, the very brightest and darkest pixels within each frame are ignored so that dust spots or specular highlights don't skew the profile (this is conservative but can be disabled if you want a truly "lossless" conversion). Outlier frames (e.g. backlit shots with very different color characteristics) are also automatically detected and excluded from the shared profile so they don't throw off the rest of the roll.
+
+You can tune the inversion behavior with CLI options or save your preferences in a global config file so they're used automatically (see [Global Config](#global-config) below).
 
 ---------------------
 
 ## FAQ
 
-### The non-raw files created by PSI or TLXClientDemo are amazing, why would I want to use this?
+### I'm not comfortable with using the command line, is it hard?
 
-A lot of people do like the default output images, and there are certainly some robust Kodak algorithms being used to often produce passable images regardless of what kind of negative is being scanned, however I personally find these images overly processed and prefer a more neutral starting point with more data. My reference point is 10 years of scanning with a Minolta 5400 dedicated film scanner using [Vuescan](https://www.hamrick.com/), generally following the ["Advanced Workflow Suggestions"](https://www.hamrick.com/vuescan/html/vuesc16.htm).  My goal during scanning is always to capture and save as much data as possible from which to work with later.
+Once installed, it's a single command. On macOS you can install a Finder Quick Action to get a right-click "Process with PPRC" option — no terminal needed.
 
-### The "Normal" PSI program already exports Raw files for me, why would I want to use TLXClientDemo's planar raw output?
+### The non-raw files created by PSI or TLXClientDemo look great, why would I want to use this?
 
-While internally the Pakon 135+ is dealing with 16-bits of image data, PSI can only export 8-bit files, even when exporting raw TIFFs.  In my experience this limitation appears most often as artifacting/quantization in the highlights of the processed file - [here are some examples of the issue](https://alibosworth.github.io/pakon-planar-raw-converter/8bit_raw_highlight_issue/).  When PSI is using its inversion/balancing algorithms it is working on the full 16-bits of data so these issues don't appear in the non-raw exports, however as stated above I find the highlight clipping and generally heavy-handed processing limiting (and you still only end up 8-bits of data).
+PSI's built-in algorithms do produce decent images and some people prefer just using them as is. PSI or TLXCD are working with 16-bit data internally and then discarding half of it when saving to 8-bit. The images are also heavily processed with Kodak's automatic adjustments. PPRC preserves the full 16-bit data and gives you a neutral starting point with more dynamic range and detail to work with in your editor. 
 
-### I can just convert the planar raw files produced by TLXClientDemo with Photoshop, why would I want to use this script?
+### PSI already exports raw files for me, why use TLXClientDemo?
 
-Yes, you can use Photoshop's raw file handling to open/convert a planar raw file, but you'll have to specify the image details (dimensions, channel count, bit-depth, header offset) each time, and then save out to a TIFF.  This script scans a whole directory of images using the file sizes to automatically know what resolution you've scanned at, then uses the ImageMagick library to convert to a standard TIFF (and then if you want also inverts it into a "positive" image using Negfix8).
+PSI can only export 8-bit files, even when exporting "raw" TIFFs. This limitation shows up most often as [artifacting and quantization in highlights](https://alibosworth.github.io/pakon-planar-raw-converter/8bit_raw_highlight_issue/). TLXClientDemo's planar raw output preserves the full 16-bit data.
+
+### Can't I just open the planar raw files in Photoshop?
+
+You can, but you'll have to manually specify the image dimensions, channel count, bit-depth, and header offset each time, and then save out to a TIFF. PPRC detects all of this automatically (from file headers or known file sizes) and processes an entire directory at once.
 
 ----------------------------------
 
 ## Installing
 
-You need to have Node, ImageMagick, and Negfix8 on your system, and then install this script "globally" so you can run it from any directory.  Technically all of the above should be possible on any kind of computer, but here's the easiest way to do it if you are on OSX.
+You'll need Node.js installed, then install PPRC globally:
 
-### OSX
+1) Install Node.js via the installer from [nodejs.org](https://nodejs.org/en/download)
 
-#### Short version (if you have [homebrew](http://brew.sh/) installed):
+2) Open a terminal:
+   - **Mac**: Press CMD-space, type "terminal", hit return
+   - **Windows**: Open the Start menu, search for "cmd", run it
 
-* `brew install imagemagick negfix8 node npm`
-* `npm install -g pakon-planar-raw-converter`
+3) Install PPRC globally:
+   ```
+   npm install -g pakon-planar-raw-converter --foreground-scripts
+   ```
 
-#### Long version:
+   *note: `--foreground-scripts` is needed for PPRC to show a welcome message after install, but is not strictly necessary*
 
-1) Install ["Homebrew"](http://brew.sh/). Homebrew helps install other things on your computer.
+#### macOS Finder Quick Action
 
-2) Open your computer's terminal by pressing CMD-space and typing "terminal" and hitting enter (you might already have this open if you followed Homebrew's installation instructions).
+After installing on a Mac, run `pprc --install-quick-action` to add a Finder Quick Action. You can then right-click any folder of raw files and select "Process with PPRC".
 
-3) Install Node, which runs Javascript outside of your browser. This is needed because even though this script and your scans and your Pakon have nothing to do with the internet, this script is written in Javascript. The easiest way to install it is to type `brew install node npm` in your terminal.  You can also [download an installer](https://nodejs.org/en/) however you may run into [permission issues](https://docs.npmjs.com/getting-started/fixing-npm-permissions) when trying to globally install the script later.
+#### Windows XP Note
 
-4) Install ImageMagick and Negfix8 by typing `brew install imagemagick negfix8` in your terminal. You may also install these dependencies manually.
-
-5) Install PPRC globally via `npm install -g pakon-planar-raw-converter`
-
-### Windows
-
-*Note: Please do not try to run PPRC on Windows XP.  Everything will be easier and faster if you install this on a more modern operating system. There is no need to run PPRC from the computer you scanned on.*
-
-1) Install Node via [downloadable installer](https://nodejs.org/en/)
-
-2) Install Imagemagick via [downloadable installer](http://www.imagemagick.org/script/binary-releases.php#windows) (make sure to select "install legacy utilities" as negfix8 needs this)
-
-3) Install Git via [downloadable installer](https://git-scm.com/download/win)
-
-4) Download the Windows version of the [Negfix8 script](https://sites.google.com/site/negfix/downloads), and place it in C:\Windows\System32 (or elsewhere if you know how to make it globally available by updating your PATH)
-
-5) Open the command prompt by clicking the start button and searching for "cmd" and running it
-
-6) run `npm install -g pakon-planar-raw-converter`
+Please do not try to run PPRC on Windows XP. Everything will be easier and faster if you install this on a more modern operating system. There is no need to run PPRC from the computer you scanned on.
 
 ------------------
 
 ## Updating
 
-You can check your currently installed version with "pprc --version" and  update with `npm update -g pakon-planar-raw-converter`
+PPRC will attempt to detect and show you a message when there is an update available, but you can update to the latest version at any time with `npm update -g pakon-planar-raw-converter --foreground-scripts`.
 
 ------------------
 
@@ -85,7 +104,7 @@ Here's a quick summary of scanning with TLXClientDemo:
 
 3) Choose your scanning options and scan your negatives:
 
-* Select "Film Color" :  "Negative"
+* Select "Film Color": "Negative"
 * Choose any Resolution
 * Choose the appropriate "Frames Per Strip" option
 * Optionally enable "Scratch Removal"
@@ -93,67 +112,131 @@ Here's a quick summary of scanning with TLXClientDemo:
 
 4) Click "Move Oldest Roll in Scan Group To Save Group"
 
-5) You may now review your scans using "Previous" and "Next" and optionally correct framing (but not cropping!). Do not rotate any images.
+5) You may now review your scans using "Previous" and "Next" and optionally correct framing.
 
 6) Click "Save" and set the save options:
 
 * "All Pictures (except hidden)"
 * "Original Height and Width"
 * "Other Options": **uncheck everything** except "Use Scratch Removal" if you enabled that earlier
-* "Type of Save Operation" : "To Client Memory"
-* "Planar" (this is important!) either with or without "Add File Header"
+* "Type of Save Operation": "To Client Memory"
+* "Planar" with "Add File Header" enabled
 * Click "OK"
 
-7) Once this process completes you will now have a `C:\Temp` full of 16-bit Planar Raw files ready to be processed, if you are using a VM to run Windows XP you would then copy those files to a directory on your host machine for further processing.
+7) Once this process completes you will now have a `C:\Temp` full of 16-bit Planar Raw files ready to be processed.
+
+* Note: enabling "Scratch Removal" at the scanning and saving steps will allow TLXCD to remove dust and scratches automatically, however there is currently no way to export the IR scan data with your .raw files.*
 
 ---------------
 
-## Using this script
+## Usage
 
-#### Short version:
+#### Quick start:
 
-Simply run `pprc` from the directory containing your raw images.
+Run `pprc` from the directory containing your `.raw` files, or point it at a directory:
 
-#### Long version:
+```
+pprc
+pprc --dir /path/to/raw/files
+```
 
-You must run this program from your computer's "terminal", that means that it is text-based rather than mouse-based, but it should be easy even if you have never done that kind of thing before.  Once you've installed it, all you have to do is:
+Processed files will be saved to an `out/` subdirectory.
 
-1) Open your computer's terminal by pressing CMD-space and typing "terminal" and hitting enter (assuming OSX).
+#### Step by step:
 
-2) Travel to the directory where your TLXClientDemo created raw files are, the easiest way to do this is to type `cd `  in the terminal (that is "cd" for Change Directory, followed by a space), and then drag the folder that contains your images into the terminal window from Finder.  When you do this it knows to insert the location of the dropped directory, so it might look like `cd /Users/alibosworth/Photos/scans/roll5`.  If it looks like that press the enter key, and you will now be "in" the directory containing your images.
+1) Open your terminal (CMD-space → "terminal" on macOS, or Start → "cmd" on Windows).
 
-3) type `pprc` and the enter key.  After a few moments you should have an "out" directory containing the processed images.
+2) Navigate to the directory containing your raw files. The easiest way is to type `cd ` (with a space) and then drag the folder into the terminal window.
 
+3) Type `pprc` and press enter. After a few seconds you should have an `out/` directory containing the processed images.
 
 ## Options
 
-By default when you run the command `pprc` in the directory containing your TLXClientDemo exported raw files the following things will happen:
+#### Input/Output
 
-1) The planar .raw files will be converted to raw TIFF files left in place.
+* `--dir [dir]` Process a specific directory of .raw files instead of the current directory.
 
-2) Negfix8 is run on these TIFF files and these files are placed in the "out" directory.
+* `--dir-out [dir]` Specify the output directory (default: `out`, placed inside the input directory). Supports the `DIR_NAME` placeholder which is replaced with the input folder's name. If the output directory already exists, pprc auto-increments the name (`out`, `out_2`, `out_3`, etc.). Start with `../` to place the output beside the input folder instead of inside it. Absolute paths are used as-is (no auto-increment). Examples:
 
-Here are some options you can run:
+  * `pprc --dir-out DIR_NAME_inverted` — output inside input folder as e.g. `myfolder_inverted/`
+  * `pprc --dir-out ../DIR_NAME_pprc_out` — output beside input folder as e.g. `myfolder_pprc_out/`
+  * `pprc --dir-out /path/to/output` — output to an absolute path
 
-* `--no-negfix` Don't run negfix8.  This will leave you with TIFFs that look dark and orange but you can use other tools to process them them such as [Vuescan](http://www.hamrick.com/) or [ColorPerfect](http://www.c-f-systems.com/Plug-ins.html).  If you use this options the raw TIFF files will be placed in the output directory.
+#### Processing Mode
 
-* `--output-dir [dir]`  Specify a different output subdirectory rather than "out".
+* `--mode <mode>` Processing mode (default: `negative`). Choices:
+  * `negative` — Invert color negative, remove orange mask (default)
+  * `raw` — Output unconverted TIFFs for processing with another tool (Negative Lab Pro, ColorPerfect, Vuescan, etc.)
+  * `e6` — Slide film — no inversion, apply auto-level
+  * `bw` — Black & white — invert, auto-level, greyscale output
+  * `bw-rgb` — Black & white — invert, auto-level, RGB output
 
-* `--dimensions [width]x[height]` Specify a non-standard image size if you adjust the framing within TLXClient.
+#### Tuning
 
-* `--e6` Skip running negfix8, apply ImageMagick's -auto-level on files.  Useful when scanning "Film Color: Positive" in TLXClientDemo.
+* `--per-image-balancing` Compute a separate inversion profile for each image instead of sharing one across the roll.
 
-* `--bw` Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save as grey-scale colorspace.
+* `--no-frame-rejection` Include all frames in the shared profile, even outliers.
 
-* `--bw-rgb` Skip running negfix8, instead do the following via ImageMagick: invert, auto-level, and save in RGB colorspace.
+* `--clip <percent>` Clip both black and white ends by N% during contrast stretch. For example, `--clip 1` gives more contrast by clipping 1% on each end.
 
-* `--no-dependency-check` Skip the dependency check.  Currently necessary to run the script on Windows XP.
+* `--clip-black <percent>` Clip the darkest N% of pixels to black (default: 0.1).
 
-* `--gamma1` Do not apply a 2.2 gamma correction when converting the raw file, instead leaving it "linear", with a 1.0 gamma.
+* `--clip-white <percent>` Clip the brightest N% of pixels to white (default: 0.1).
+
+* `--gamma <value>` Gamma correction applied during negative inversion (default: 2.15).
+
+* `--no-stretch` Disable contrast stretch during inversion (enabled by default).
+
+* `--border-exclude <percent>` Exclude outer N% of image from profiling and contrast stretch (default: 2).
+
+* `--pixel-rejection-percentage <percent>` Ignore brightest/darkest N% of pixels when profiling (default: 0.1).
+
+#### Profiles
+
+* `--save-profile <name>` Analyze input files, save inversion profile to `~/.negpro/`, then exit.
+
+* `--profile <name>` Use a previously saved inversion profile from `~/.negpro/`.
+
+#### Utility
+
+* `--save-config` Save current options as defaults in `~/.pprc/config.json` and exit. For example: `pprc --clip 2.5 --save-config`.
+
+* `--install-quick-action` / `--uninstall-quick-action` Install or remove the macOS Finder Quick Action.
+
+* `--examples` Show usage examples.
 
 ----------
 
-## Questions? 
+## Global Config
+
+You can save default settings in `~/.pprc/config.json` so they apply to every run without needing CLI flags. CLI flags always take priority over config values.
+
+The easiest way to create a config is with `--save-config`:
+
+```
+pprc --clip 2.5 --dir-out ../DIR_NAME_inverted --save-config
+```
+
+You can also manually create or edit `~/.pprc/config.json`:
+
+```json
+{
+  "dirOut": "../DIR_NAME_inverted",
+  "clip": 2.5
+}
+```
+
+After each run, pprc saves the effective settings to `~/.pprc/last_run_config.json`. If you liked the results, you can copy it to use as your config:
+
+```
+cp ~/.pprc/last_run_config.json ~/.pprc/config.json
+```
+
+When settings are loaded from config, pprc displays them at startup so you always know what's being applied.
+
+----------
+
+## Questions?
 
 ali@alibosworth.com
 

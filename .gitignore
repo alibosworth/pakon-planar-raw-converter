@@ -6,3 +6,6 @@ docs/_site/
 docs/.jekyll-cache/
 docs/_readme.md
 .private
+tests/out/
+.claude/
+.private/
