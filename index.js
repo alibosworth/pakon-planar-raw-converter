@@ -98,7 +98,6 @@ program
   .option('--clip-black <percent>', 'Clip darkest N% to black during contrast stretch (negpro default: 0.1)')
   .option('--clip-white <percent>', 'Clip brightest N% to white during contrast stretch (negpro default: 0.1)')
   .option('--clip <percent>', 'Clip both black and white ends by N% during contrast stretch')
-  .option('--gamma1', 'Skip 2.2 gamma correction, leaving the raw file linear (gamma 1.0)')
   .option('--no-negfix', '[deprecated: use --no-invert] Skip negative inversion')
   .option('--dimensions [width]x[height]', '[deprecated] Manually specify pixel dimensions for headerless raw files (e.g. "4000x2000")')
   .addOption(new Option('--install-quick-action', 'Install macOS Finder right-click Quick Action for folders').hideHelp(process.platform !== 'darwin'))
@@ -220,9 +219,6 @@ Examples:
 
   Clip shadows and highlights separately:
     pprc --clip-black 0.5 --clip-white 0.1
-
-  Skip gamma correction — output linear data for manual processing:
-    pprc --gamma1
 
   Include all frames in color balancing, even outliers:
     pprc --no-frame-rejection
@@ -635,10 +631,7 @@ function checkRawFiles(rawFiles){
 function convertRawFilesToTiff (data) {
   var label = "Converting raw files to tiff files";
 
-  var qualifiers = [];
-  if (noInvert) qualifiers.push("no inversion");
-  if (opts.gamma1) qualifiers.push("without gamma adjustment");
-  if (qualifiers.length) label += " (" + qualifiers.join(", ") + ")";
+  if (noInvert) label += " (no inversion)";
 
   console.log(label);
 
@@ -695,7 +688,6 @@ function convertRawToTiff (name, fileInfo) {
         channels: fileInfo.channels,
         headerOffset: fileInfo.headerOffset,
         destinationFile: destinationFile ? path.resolve(destinationFile) : null,
-        applyGamma: !opts.gamma1,
         mode: mode,
         software: `PPRC v${pkg.version}`,
         returnBuffer: returnBuffer,
