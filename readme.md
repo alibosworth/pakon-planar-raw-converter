@@ -14,18 +14,20 @@ The Pakon F135/F135+ captures 15 bits of data per channel internally, but its st
 PPRC takes those raw files and:
 
 1. Converts the planar data to standard interleaved 16-bit TIFFs
-2. Analyzes the entire roll to compute a shared color profile
+2. Analyzes the roll to compute a shared color profile
 3. Removes the orange mask and inverts the negative
 4. Outputs files ready to import into Lightroom, Capture One, Bridge, or any editor that handles 16-bit TIFFs
 
 The result is images that preserve all the data your scanner captured: the best possible starting point for your editing.
+
+For best color consistency, process a whole roll together when possible rather than splitting it into smaller batches. PPRC's default inversion analyzes the batch as a group, which helps keep color balance consistent across frames and makes outlier-frame rejection more reliable.
 
 [Here are some comparisons](https://alibosworth.github.io/pakon-planar-raw-converter/comparison/) of standard PSI output vs PPRC output. And [here are examples](https://alibosworth.github.io/pakon-planar-raw-converter/8bit_raw_highlight_issue/) of the quality issues caused by PSI's 8-bit limitation.
 
 
 ## What PPRC is not
 
-PPRC is not a full-featured negative inversion editor. It does not offer per-image film base selection, manual color correction, or creative grading controls. Tools like [Negative Lab Pro](https://www.negativelabpro.com/), [Grain2Pixel](https://grain2pixel.com/), [ColorNeg](https://www.colorperfect.com/colorneg.html), or [NegPy](https://github.com/marcinz606/NegPy) are designed for that.
+PPRC is not a negative inversion editor — it doesn't offer manual color correction or creative grading controls. Instead, it automatically removes the orange mask and computes a shared color balance across the whole roll, giving you consistent, neutral results ready for editing in your tool of choice. Tools like [Negative Lab Pro](https://www.negativelabpro.com/), [Grain2Pixel](https://grain2pixel.com/), [ColorNeg](https://www.colorperfect.com/colorneg.html), or [NegPy](https://github.com/marcinz606/NegPy) are designed for that.
 
 PPRC's output is intentionally neutral and data-rich rather than punchy or stylized. Images will look flatter than what you'd get from a more aggressive inversion tool, and this is by design. The goal is to preserve maximum editing headroom so you can make decisions yourself via your preferred workflow.
 
@@ -33,9 +35,11 @@ If you want to use your own orange mask removal process, run with `--mode raw` t
 
 ## How does the color inversion work?
 
-The inversion and orange mask removal is done by a new tool I've built called negpro (pending link). By default, all images in a batch are analyzed together to compute a shared color profile. This produces more consistent results across a roll than analyzing each frame individually.
+By default, all images in a batch are analyzed together to compute a shared color profile. This produces more consistent results across a roll than analyzing each frame individually.
 
-During analysis, the very brightest and darkest pixels within each frame are ignored so that dust spots or specular highlights don't skew the profile (this is conservative but can be disabled if you want a truly "lossless" conversion). Outlier frames (e.g. backlit shots with very different color characteristics) are also automatically detected and excluded from the shared profile so they don't throw off the rest of the roll.
+During analysis, the very brightest and darkest pixels within each frame are ignored so that dust spots or specular highlights don't skew the profile. Outlier frames (e.g. backlit shots with very different color characteristics) are also automatically detected and excluded from the shared profile so they don't throw off the rest of the roll.
+
+These defaults are designed to produce better roll-wide results, not to be a bit-for-bit archival transform. If you want the closest thing to a straight preservation path, use `--mode raw` to export the Pakon's 16-bit data as standard TIFFs without negpro inversion. If you want to keep negpro's inversion but make it less aggressive, you can tune or disable clipping, contrast stretch, and pixel rejection.
 
 You can tune the inversion behavior with CLI options or save your preferences in a global config file so they're used automatically (see [Global Config](#global-config) below).
 
@@ -63,7 +67,7 @@ You can, but you'll have to manually specify the image dimensions, channel count
 
 ## Installing
 
-You'll need Node.js installed, then install PPRC globally:
+You'll need Node.js v22+ installed, then install PPRC globally:
 
 1) Install Node.js via the installer from [nodejs.org](https://nodejs.org/en/download)
 
@@ -142,6 +146,8 @@ pprc --dir /path/to/raw/files
 
 Processed files will be saved to an `out/` subdirectory.
 
+For best results, run PPRC on a full roll together when possible instead of processing a few frames at a time.
+
 #### Step by step:
 
 1) Open your terminal (CMD-space → "terminal" on macOS, or Start → "cmd" on Windows).
@@ -193,9 +199,9 @@ Processed files will be saved to an `out/` subdirectory.
 
 #### Profiles
 
-* `--save-profile <name>` Analyze input files, save inversion profile to `~/.negpro/`, then exit.
+* `--save-profile <name>` Analyze input files, save inversion profile to `~/.pprc/`, then exit.
 
-* `--profile <name>` Use a previously saved inversion profile from `~/.negpro/`.
+* `--profile <name>` Use a previously saved inversion profile from `~/.pprc/`.
 
 #### Utility
 
