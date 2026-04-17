@@ -162,10 +162,10 @@ For best results, run PPRC on a full roll together when possible instead of proc
 
 * `--dir [dir]` Process a specific directory of .raw files instead of the current directory.
 
-* `--dir-out [dir]` Specify the output directory (default: `out`, placed inside the input directory). Supports the `DIR_NAME` placeholder which is replaced with the input folder's name. If the output directory already exists, pprc auto-increments the name (`out`, `out_2`, `out_3`, etc.). Start with `../` to place the output beside the input folder instead of inside it. Absolute paths are used as-is (no auto-increment). Examples:
+* `--dir-out [dir]` Specify the output directory (default: `out`, placed inside the input directory). Supports the `INPUT_DIR` placeholder which is replaced with the input folder's name. If the output directory already exists, pprc auto-increments the name (`out`, `out_2`, `out_3`, etc.). Start with `../` to place the output beside the input folder instead of inside it. Absolute paths are used as-is (no auto-increment). Examples:
 
-  * `pprc --dir-out DIR_NAME_inverted` — output inside input folder as e.g. `myfolder_inverted/`
-  * `pprc --dir-out ../DIR_NAME_pprc_out` — output beside input folder as e.g. `myfolder_pprc_out/`
+  * `pprc --dir-out INPUT_DIR_inverted` — output inside input folder as e.g. `myfolder_inverted/`
+  * `pprc --dir-out ../INPUT_DIR_pprc_out` — output beside input folder as e.g. `myfolder_pprc_out/`
   * `pprc --dir-out /path/to/output` — output to an absolute path
 
 #### Processing Mode
@@ -220,14 +220,14 @@ You can save default settings in `~/.pprc/config.json` so they apply to every ru
 The easiest way to create a config is with `--save-config`:
 
 ```
-pprc --clip 2.5 --dir-out ../DIR_NAME_inverted --save-config
+pprc --clip 2.5 --dir-out ../INPUT_DIR_inverted --save-config
 ```
 
 You can also manually create or edit `~/.pprc/config.json`:
 
 ```json
 {
-  "dirOut": "../DIR_NAME_inverted",
+  "dirOut": "../INPUT_DIR_inverted",
   "clip": 2.5
 }
 ```

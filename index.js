@@ -90,7 +90,7 @@ var program = new Command();
 program
   .name('pprc')
   .option('--dir [dir]', 'Directory containing .raw files to process (default: current directory)')
-  .option('--dir-out [dir]', `Output directory (use DIR_NAME for input folder name, start with '../' to place beside input)`, OUTPUT_DIR)
+  .option('--dir-out [dir]', `Output directory (use INPUT_DIR for input folder name, start with '../' to place beside input)`, OUTPUT_DIR)
   .addOption(new Option('--output-dir [dir]', `Specify the output directory name`).hideHelp())
   .addOption(new Option('--mode <mode>', 'Processing mode').choices(['negative', 'raw', 'e6', 'bw', 'bw-rgb']).default('negative'))
   .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing')
@@ -248,10 +248,10 @@ Examples:
     pprc --dir /path/to/raw/files
 
   Custom output name with template (output: /path/to/raw/files/files_inverted/):
-    pprc --dir /path/to/raw/files --dir-out DIR_NAME_inverted
+    pprc --dir /path/to/raw/files --dir-out INPUT_DIR_inverted
 
   Output beside the input folder instead of inside it:
-    pprc --dir-out ../DIR_NAME_pprc_out
+    pprc --dir-out ../INPUT_DIR_pprc_out
 
   Output to an absolute path:
     pprc --dir-out /path/to/output
@@ -373,8 +373,8 @@ var inputDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
 var dirBaseName = path.basename(inputDir);
 var outputDir, tiffDir;
 
-// Replace DIR_NAME template in --dir-out value
-var dirOutValue = opts.dirOut.replace(/DIR_NAME/g, dirBaseName);
+// Replace INPUT_DIR template in --dir-out value
+var dirOutValue = opts.dirOut.replace(/INPUT_DIR/g, dirBaseName);
 
 // Normalize backslashes to forward slashes for cross-platform support (Windows ..\)
 dirOutValue = dirOutValue.replace(/\\/g, '/');
