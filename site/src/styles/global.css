@@ -197,11 +197,20 @@ h1, h2, h3, h4 {
   margin-bottom: 1rem;
 }
 
+.hero .hero-subheading {
+  font-size: 1rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-top: -1rem;
+  margin-bottom: 0.75rem;
+}
+
 .hero .subtitle {
   font-size: clamp(1.1rem, 2vw, 1.3rem);
   color: var(--text-muted);
   max-width: var(--text-width);
-  margin: 0 auto 2rem;
+  margin: 0 auto 5rem;
   line-height: 1.6;
 }
 
@@ -327,6 +336,25 @@ h1, h2, h3, h4 {
   color: var(--text-muted);
   font-size: 0.9rem;
   line-height: 1.6;
+}
+
+/* ── What PPRC is not ───────────────────────── */
+.not-section {
+  padding: 4rem 0;
+}
+
+.not-section h2 {
+  font-size: 1.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.not-section p {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.not-section p + p {
+  margin-top: 1rem;
 }
 
 /* ── FAQ ─────────────────────────────────────── */
