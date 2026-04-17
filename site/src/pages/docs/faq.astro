@@ -39,7 +39,7 @@ import Docs from '../../layouts/Docs.astro';
     ready for Negative Lab Pro, ColorPerfect, Vuescan, or any other tool.
   </p>
 
-  <h2>How does the color inversion work?</h2>
+  <h2 id="how-inversion-works">How does the color inversion work?</h2>
   <p>
     All images in a batch are analyzed together to compute a shared color profile. This produces
     more consistent results across a roll than analyzing each frame individually.
@@ -60,10 +60,6 @@ import Docs from '../../layouts/Docs.astro';
     preferences in a <a href="/docs/config">global config file</a>.
   </p>
   <p>
-    Note: prior to version 1.0, PPRC used the negfix8 shell script (which in turn relied on <a href="https://imagemagick.org/" target="_blank" rel="noopener">ImageMagick</a>)
-    to handle inversion and orange mask removal. This approach had several downsides: it was slow
-    (a 37-frame roll took around 2.5 minutes), produced less consistent results due to per-image
-    analysis only, and required ImageMagick to be installed separately. The current pipeline is
-    pure JavaScript, fully self-contained, around 40–50x faster for the same workload, and produces significantly more consistent results thanks to whole-roll analysis and automatic outlier frame rejection.
+    PPRC 1.0+ uses a purpose-built inversion engine to handle color analysis and orange mask removal. Prior to version 1.0, PPRC used the negfix8 shell script (which relied on <a href="https://imagemagick.org/" target="_blank" rel="noopener">ImageMagick</a>) for inversion. That approach was slow (a 37-frame roll took around 2.5 minutes), produced less consistent results due to per-image analysis only, and required ImageMagick to be installed separately. The current pipeline is fully self-contained, around 40–50x faster for the same workload, and produces significantly more consistent results thanks to whole-roll analysis and automatic outlier frame rejection.
   </p>
 </Docs>

@@ -120,7 +120,7 @@ import Base from '../layouts/Base.astro';
 
         <div class="faq-item">
           <h3>How does the color inversion work?</h3>
-          <p>All images in a batch are analyzed together to compute a shared color profile. Extreme pixels and outlier frames are excluded so dust spots and backlit shots don't skew the results. For best consistency, process a whole roll together when possible instead of splitting it into small batches. You can tune this behavior with CLI options or a global config file.</p>
+          <p>All images in a batch are analyzed together to compute a shared color profile, which produces more consistent results than analyzing each frame individually. The brightest and darkest pixels are ignored so dust spots don't skew the profile, and outlier frames (e.g. backlit shots) are automatically excluded. For best results, process a whole roll together. <a href="/docs/faq#how-inversion-works">Read more →</a></p>
         </div>
         <p style="margin-top: 1.5rem;"><a href="/docs/faq">See all questions →</a></p>
       </div>
