@@ -1,0 +1,60 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+
+<Docs title="Global Config">
+  <h1>Global Config</h1>
+  <p>
+    You can save default settings in <code>~/.pprc/config.json</code> so they apply to every
+    run without needing CLI flags. CLI flags always take priority over config values.
+  </p>
+  <p>
+    <em>On Windows, <code>~/.pprc/</code> resolves to <code>%USERPROFILE%\.pprc\</code>
+    (e.g. <code>C:\Users\&lt;you&gt;\.pprc\</code>).</em>
+  </p>
+
+  <h2>Saving config</h2>
+  <p>The easiest way to create a config is with <code>--save-config</code>:</p>
+  <pre><code>pprc --clip 2.5 --dir-out ../DIR_NAME_inverted --save-config</code></pre>
+  <p>This saves the specified options and exits without processing.</p>
+
+  <h2>Manual editing</h2>
+  <p>You can also create or edit <code>~/.pprc/config.json</code> directly:</p>
+  <pre><code>{`{
+  "dirOut": "../DIR_NAME_inverted",
+  "clip": 2.5
+}`}</code></pre>
+
+  <h2>Configurable options</h2>
+  <p>The following options can be set in the config file:</p>
+  <ul>
+    <li><code>dirOut</code> — output directory template</li>
+    <li><code>mode</code> — processing mode (<code>negative</code>, <code>raw</code>, <code>e6</code>, <code>bw</code>, <code>bw-rgb</code>)</li>
+    <li><code>perImageBalancing</code> — per-image balancing (boolean)</li>
+    <li><code>noFrameRejection</code> — disable frame rejection (boolean)</li>
+    <li><code>clip</code> — clip both ends by N%</li>
+    <li><code>clipBlack</code> — clip darkest N%</li>
+    <li><code>clipWhite</code> — clip brightest N%</li>
+    <li><code>gamma</code> — inversion gamma</li>
+    <li><code>noStretch</code> — disable contrast stretch (boolean)</li>
+    <li><code>borderExclude</code> — exclude outer N% from profiling</li>
+    <li><code>pixelRejectionPercentage</code> — ignore brightest/darkest N% of pixels</li>
+    <li><code>profile</code> — name of a saved inversion profile to use. Saved profiles live in <code>~/.pprc/profiles/&lt;name&gt;.json</code> (<code>%USERPROFILE%\.pprc\profiles\&lt;name&gt;.json</code> on Windows).</li>
+  </ul>
+
+  <h2>Last run config</h2>
+  <p>
+    After each run, PPRC saves the effective settings to <code>~/.pprc/last_run_config.json</code>.
+    If you liked the results, you can copy it to use as your config:
+  </p>
+  <p><strong>macOS / Linux:</strong></p>
+  <pre><code>cp ~/.pprc/last_run_config.json ~/.pprc/config.json</code></pre>
+  <p><strong>Windows:</strong></p>
+  <pre><code>copy %USERPROFILE%\.pprc\last_run_config.json %USERPROFILE%\.pprc\config.json</code></pre>
+
+  <h2>Config display</h2>
+  <p>
+    When settings are loaded from config, PPRC displays them at startup so you always
+    know what's being applied. If a CLI flag overrides a config value, both are shown.
+  </p>
+</Docs>

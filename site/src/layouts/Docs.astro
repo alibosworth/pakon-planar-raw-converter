@@ -1,0 +1,49 @@
+---
+import Base from './Base.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const currentPath = Astro.url.pathname;
+
+const sidebarLinks = [
+  { href: '/docs/getting-started', label: 'Getting Started' },
+  { href: '/docs/scanning', label: 'Scanning' },
+  { href: '/docs/options', label: 'Options' },
+  { href: '/docs/examples', label: 'Examples' },
+  { href: '/docs/config', label: 'Global Config' },
+  { href: '/docs/quick-action', label: 'macOS Quick Action' },
+  { href: '/docs/faq', label: 'FAQ' },
+];
+
+const currentIndex = sidebarLinks.findIndex(l => currentPath.startsWith(l.href));
+const prev = currentIndex > 0 ? sidebarLinks[currentIndex - 1] : null;
+const next = currentIndex < sidebarLinks.length - 1 ? sidebarLinks[currentIndex + 1] : null;
+---
+
+<Base title={`${title} — PPRC Docs`} description={description}>
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <nav>
+        {sidebarLinks.map(link => (
+          <a href={link.href} aria-current={currentPath.startsWith(link.href) ? 'page' : undefined}>
+            {link.label}
+          </a>
+        ))}
+      </nav>
+    </aside>
+    <main class="docs-content">
+      <slot />
+
+      {(prev || next) && (
+        <nav class="docs-nav">
+          {prev ? <a href={prev.href}>&larr; {prev.label}</a> : <span />}
+          {next ? <a href={next.href}>{next.label} &rarr;</a> : <span />}
+        </nav>
+      )}
+    </main>
+  </div>
+</Base>

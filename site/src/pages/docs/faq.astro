@@ -1,0 +1,62 @@
+---
+import Docs from '../../layouts/Docs.astro';
+---
+
+<Docs title="FAQ">
+  <h1>FAQ</h1>
+
+  <h2>Is the command line difficult to use?</h2>
+  <p>
+    Once installed, it's a single command. On macOS you can install a Finder Quick Action
+    to get a right-click "Process with PPRC" option — no terminal needed.
+  </p>
+
+  <h2>Why not just use PSI's built-in saving?</h2>
+  <p>
+    PSI produces decent images and some people prefer using them as-is. But PSI works with
+    16-bit data internally and then discards half of it when saving to 8-bit. The images are
+    also heavily processed with Kodak's automatic adjustments. PPRC preserves the full 16-bit
+    data and gives you a neutral starting point with more dynamic range and detail to work with.
+  </p>
+
+  <h2>Why use TLXClientDemo instead of PSI for raw files?</h2>
+  <p>
+    PSI can only export 8-bit files, even when exporting "raw" TIFFs. This limitation shows up
+    most often as artifacting and quantization in highlights. TLXClientDemo's planar raw output
+    preserves the full 16-bit data.
+  </p>
+
+  <h2>Can't I just open the planar raw files in Photoshop?</h2>
+  <p>
+    You can, but you'll have to manually specify the image dimensions, channel count, bit-depth,
+    and header offset each time, then save out to a TIFF. PPRC detects all of this automatically
+    (from file headers or known file sizes) and processes an entire directory at once.
+  </p>
+
+  <h2>Can I use my own inversion tool?</h2>
+  <p>
+    Yes: run with <code>--mode raw</code> to get 16-bit TIFFs without orange mask removal,
+    ready for Negative Lab Pro, ColorPerfect, Vuescan, or any other tool.
+  </p>
+
+  <h2>How does the color inversion work?</h2>
+  <p>
+    All images in a batch are analyzed together to compute a shared color profile. This produces
+    more consistent results across a roll than analyzing each frame individually.
+  </p>
+  <p>
+    For best results, process a whole roll together when possible instead of splitting it into
+    small batches. The shared analysis and outlier-frame rejection both work better with more
+    context from the rest of the roll.
+  </p>
+  <p>
+    During analysis, the very brightest and darkest pixels within each frame are ignored so that
+    dust spots or specular highlights don't skew the profile. Outlier frames (e.g. backlit shots
+    with very different color characteristics) are automatically excluded from the shared profile
+    so they don't throw off the rest of the roll.
+  </p>
+  <p>
+    You can tune the inversion behavior with <a href="/docs/options">CLI options</a> or save your
+    preferences in a <a href="/docs/config">global config file</a>.
+  </p>
+</Docs>

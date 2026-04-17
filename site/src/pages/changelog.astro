@@ -1,0 +1,55 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Changelog — PPRC">
+  <div class="docs-layout" style="grid-template-columns: 1fr;">
+    <main class="docs-content" style="max-width: var(--text-width); margin: 0 auto;">
+      <h1>Changelog</h1>
+
+      <div class="changelog-entry">
+        <h2>1.0.0</h2>
+        <p class="changelog-date">April 2026</p>
+        <h3>Pipeline</h3>
+        <ul>
+          <li>Pure JavaScript pipeline — no ImageMagick or sharp required</li>
+          <li>Multi-threaded worker-based conversion (whole roll in seconds)</li>
+          <li>Direct buffer path to negpro — no intermediate TIFF files</li>
+          <li>~40–50x faster than legacy negfix8 + ImageMagick pipeline</li>
+        </ul>
+
+        <h3>Inversion (negpro replaces negfix8)</h3>
+        <ul>
+          <li>Roll-level analysis — computes a shared color profile across all frames for consistent results</li>
+          <li>Automatic outlier frame rejection — backlit or unusual frames are excluded from the shared profile so they don't skew the rest of the roll</li>
+          <li>Percentile-based pixel rejection — ignores brightest/darkest pixels (default 0.1%) to prevent dust and specular highlights from affecting the profile</li>
+          <li>Tunable border exclusion — ignores outer edge pixels (default 2%) to eliminate film holder and rebate artifacts</li>
+          <li>Independent shadow/highlight clipping — <code>--clip-black</code> and <code>--clip-white</code> for fine control over contrast stretch</li>
+          <li>Clipping risk detection — warns when narrow-density negatives may clip too aggressively, with suggested alternative settings</li>
+          <li>LUT-based per-pixel inversion — ~26x faster than per-pixel <code>Math.pow()</code></li>
+          <li>Per-image balancing mode — optional per-frame profiling via <code>--per-image-balancing</code></li>
+        </ul>
+
+        <h3>CLI &amp; Configuration</h3>
+        <ul>
+          <li>macOS Finder Quick Action (<code>--install-quick-action</code>)</li>
+          <li>Automatic update notifications via npm dist tags</li>
+          <li>Output directory auto-increment to avoid overwrites</li>
+          <li><code>--dir-out</code> with <code>DIR_NAME</code> placeholder support</li>
+          <li>Global config file support (<code>~/.pprc/config.json</code>)</li>
+          <li>Last-run config saved automatically — copy to reuse settings</li>
+        </ul>
+      </div>
+
+      <div class="changelog-entry">
+        <h2>0.x (Legacy)</h2>
+        <p class="changelog-date">Earlier releases</p>
+        <ul>
+          <li>Inversion &amp; balancing via third party negfix8 script (ImageMagick-based)</li>
+          <li>Basic planar raw to TIFF conversion</li>
+          <li>Initial CLI</li>
+        </ul>
+      </div>
+    </main>
+  </div>
+</Base>
