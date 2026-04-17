@@ -7,5 +7,6 @@ docs/.jekyll-cache/
 docs/_readme.md
 .private
 tests/out/
+pprc-bin
 .claude/
 .private/

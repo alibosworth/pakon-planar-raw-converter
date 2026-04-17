@@ -9,6 +9,7 @@ var __filename = fileURLToPath(import.meta.url);
 var __dirname = path.dirname(__filename);
 
 import pkg from './package.json' with { type: 'json' };
+import atlasPkg from '@alibosworth/atlas-node/package.json' with { type: 'json' };
 
 // Handle --postinstall before loading heavy dependencies
 if (process.argv.includes('--postinstall')) {
@@ -44,9 +45,9 @@ var updateCheckInterval = distTag === 'alpha' ? 1000 * 60 * 60
                         : 1000 * 60 * 60 * 24;
 updateNotifier({ pkg, distTag, updateCheckInterval }).notify({ isGlobal: true });
 
-var [{ Worker }, { default: negpro, processImages, saveProfile, core }, { Command, Help, Option }] = await Promise.all([
+var [{ Worker }, { processBuffers, saveProfile, loadProfile }, { Command, Help, Option }] = await Promise.all([
   import('worker_threads'),
-  import('negpro'),
+  import('@alibosworth/atlas-node'),
   import('commander')
 ]);
 
@@ -161,6 +162,7 @@ if (opts.outputDir) {
 
 // Load pprc config (~/.pprc/config.json)
 var pprcConfigDir = path.join(os.homedir(), '.pprc');
+var pprcProfilesDir = path.join(pprcConfigDir, 'profiles');
 var pprcConfigPath = path.join(pprcConfigDir, 'config.json');
 var pprcConfig = {};
 
@@ -292,7 +294,7 @@ Examples:
   Analyze a roll and save its profile for reuse:
     pprc --save-profile portra400
 
-  Use a previously saved negpro profile:
+  Use a previously saved profile:
     pprc --profile portra400
 
   Save current options as global defaults:
@@ -329,11 +331,22 @@ if (opts.bwRgb && program.getOptionValueSource('bwRgb') !== 'default') {
   opts.mode = 'bw-rgb';
 }
 
-if (opts.profile) {
-  var profilePath = path.join(os.homedir(), '.negpro', `${opts.profile}.json`);
-  if (!fs.existsSync(profilePath)) {
-    exitWithError(`Profile '${opts.profile}' not found. Expected file: ${profilePath}\nUse --save-profile ${opts.profile} to create it.`);
+function validateProfileName(name, flag) {
+  if (!name || /[/\\:*?"<>|\x00\s]/.test(name) || name === '.' || name === '..') {
+    exitWithError(`Invalid profile name '${name}' for ${flag}. Use a simple name with no path separators or special characters (e.g. portra400).`);
   }
+}
+
+if (opts.saveProfile) validateProfileName(opts.saveProfile, '--save-profile');
+if (opts.profile)     validateProfileName(opts.profile,     '--profile');
+
+var loadedProfile = null;
+if (opts.profile) {
+  loadedProfile = loadProfile(opts.profile, pprcProfilesDir);
+  if (!loadedProfile) {
+    exitWithError(`Profile '${opts.profile}' not found.\nExpected: ${path.join(pprcProfilesDir, opts.profile + '.json')}\nRun pprc on a set of scans with \x1b[1m--save-profile ${opts.profile}\x1b[0m to create it.`);
+  }
+  console.log(`\x1b[3mUsing profile '${opts.profile}'\x1b[0m`);
 }
 
 if (opts.saveConfig) {
@@ -453,10 +466,11 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       console.log(`${buffers.length} ${buffers.length === 1 ? "file" : "files"} saved to '${tiffDir}' as ${verb} TIFF.`);
       if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms\x1b[0m`);
       saveLastRunConfig();
+      writeRunLog(buffers, null, null, Date.now() - startTime);
     } else if (opts.saveProfile) {
       saveProfileFromBuffers(buffers);
     } else {
-      invertBuffersWithNegpro(buffers);
+      invertBuffers(buffers);
     }
   });
 
@@ -465,205 +479,242 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       return { pixels: buf.pixels, width: buf.width, height: buf.height, name: buf.name };
     });
 
-    var totalFiles = images.length;
-    var gamma = opts.gamma !== undefined ? opts.gamma : 2.15;
-    var outlierRejection = opts.pixelRejectionPercentage !== undefined ? opts.pixelRejectionPercentage : 0.1;
-    var frameRejectionEnabled = opts.frameRejection !== false;
-
     console.log("Analyzing images to compute inversion profile");
 
-    // Analyze each image
-    var allStats = images.map(function(img, i) {
-      var stats = core.analyzePixels(img.pixels, img.width * img.height, outlierRejection);
-      process.stdout.write(`\r${images.slice(0, i + 1).map(function() { return '▰'; }).join(' ')}${images.slice(i + 1).map(function() { return '▱'; }).join(' ')}`);
-      return stats;
-    });
-    process.stdout.write("\n");
+    var atlasOpts = buildAtlasOpts();
 
-    // Frame rejection
-    var statsForProfile = allStats;
-    if (frameRejectionEnabled && totalFiles > 2) {
-      var rejection = core.rejectOutlierFrames(allStats);
-      if (rejection.rejected.length > 0) {
-        statsForProfile = rejection.included.map(function(i) { return allStats[i]; });
-        var lines = [`\x1b[33mRejected ${rejection.rejected.length} frame(s) from profile (use --no-frame-rejection to include all):`];
-        rejection.rejected.forEach(function(i) {
-          lines.push(`  ${images[i].name}.raw`);
-        });
+    processBuffers(images, atlasOpts, function(event) {
+      if (event.type === 'analyze') {
+        var bar = Array.from({length: event.total}, function(_, i) { return i < event.done ? '▰' : '▱'; });
+        process.stdout.write('\r' + bar.join(' '));
+      }
+    }).then(function(result) {
+      process.stdout.write("\n");
+
+      if (result.frameRejection && result.frameRejection.rejected.length > 0) {
+        var rej = result.frameRejection;
+        var lines = ['\x1b[33mRejected ' + rej.rejected.length + ' frame(s) from profile (use --no-frame-rejection to include all):'];
+        rej.rejected.forEach(function(i) { lines.push('  ' + images[i].name + '.raw'); });
         console.log(lines.join('\n') + '\x1b[0m');
       }
-    }
 
-    var profile = core.computeProfile(statsForProfile, gamma);
-    saveProfile(opts.saveProfile, profile);
-    console.log(`\n✨ Profile saved as '${opts.saveProfile}'`);
+      saveProfile(opts.saveProfile, result.sharedProfile, pprcProfilesDir);
+      console.log(`\n✨ Profile saved as '${opts.saveProfile}'`);
+    });
   }
 
-  function invertBuffersWithNegpro(buffers) {
-    // Build InputBuffer array for negpro's processImages
+  function invertBuffers(buffers) {
     var images = buffers.map(function(buf) {
-      return { pixels: buf.pixels, width: buf.width, height: buf.height, name: buf.name };
+      return { pixels: buf.pixels, width: buf.width, height: buf.height, name: buf.name + '.tiff' };
     });
 
     var totalFiles = images.length;
     var analyzeLabelPrinted = false;
     var invertLabelPrinted = false;
-    var rejectedFramesEvent = null;
-    var processWarnings = [];
 
-    function renderProgress(completed, total) {
-      var bar = [];
-      for (var i = 0; i < total; i++) {
-        bar.push(completed[i] ? '▰' : '▱');
+    var atlasOpts = buildAtlasOpts();
+    atlasOpts.outputDir = path.resolve(outputDir);
+    atlasOpts.software = `PPRC v${pkg.version}`;
+
+    processBuffers(images, atlasOpts, function(event) {
+      if (event.type === 'analyze') {
+        if (!analyzeLabelPrinted) {
+          analyzeLabelPrinted = true;
+          console.log("Analysing images to determine average data for inversion");
+        }
+        var bar = Array.from({length: event.total}, function(_, i) { return i < event.done ? '▰' : '▱'; });
+        process.stdout.write('\r' + bar.join(' '));
+        return;
       }
-      process.stdout.write(`\r${bar.join(' ')}`);
-    }
 
-    var analysisDone = new Array(totalFiles).fill(false);
-    var adjustDone = new Array(totalFiles).fill(false);
-    var resolvedPerImage = false;
-
-    var negproOpts = {
-      outputDir: path.resolve(outputDir),
-      callerName: `PPRC v${pkg.version}`,
-      onProgress: function(event) {
-        if (event.type === 'config') {
-          resolvedPerImage = event.config.perImage;
-
-          // Show settings coming from negpro global config
-          var fromConfig = event.sources ? Object.keys(event.sources).filter(function(key) {
-            return event.sources[key] === 'config';
-          }) : [];
-          if (fromConfig.length > 0 && event.configPath) {
-            var lines = ["Using negpro global config (" + event.configPath + "):"];
-            fromConfig.forEach(function(key) {
-              lines.push("  " + key + ": " + event.config[key]);
-            });
-            console.log(lines.join("\n"));
-          }
-
-          if (resolvedPerImage) {
-            console.log("Inverting images with negpro (per-image balancing)");
-          }
-          return;
-        }
-
-        if (event.type === 'analyzing') {
-          if (!analyzeLabelPrinted) {
-            analyzeLabelPrinted = true;
-            console.log("Analysing images to determine average data for inversion");
-          }
-          analysisDone[event.index] = true;
-          renderProgress(analysisDone, totalFiles);
-          return;
-        }
-
-        if (event.type === 'profile-computed') {
-          process.stdout.write("\n");
-          return;
-        }
-
-        if (event.type === 'frames-rejected') {
-          rejectedFramesEvent = event;
-          return;
-        }
-
-        if (event.type === 'processing') {
-          if (!invertLabelPrinted && !resolvedPerImage) {
-            invertLabelPrinted = true;
-            console.log("Inverting images with negpro");
-          }
-          return;
-        }
-
-        if (event.type === 'done') {
-          adjustDone[event.index] = true;
-          renderProgress(adjustDone, totalFiles);
-          return;
-        }
-
-        if (event.type === 'complete') {
-          processWarnings = event.warnings || [];
-          return;
-        }
+      if (event.type === 'profile') {
+        process.stdout.write("\n");
+        return;
       }
-    };
 
-    // Pass through CLI options
-    if (opts.perImageBalancing) {
-      negproOpts.perImage = true;
-    }
-    if (opts.frameRejection === false) {
-      negproOpts.noFrameRejection = true;
-    }
-    if (opts.clip !== undefined) {
-      negproOpts.clipBlack = parseFloat(opts.clip);
-      negproOpts.clipWhite = parseFloat(opts.clip);
-    }
-    if (opts.clipBlack !== undefined) {
-      negproOpts.clipBlack = parseFloat(opts.clipBlack);
-    }
-    if (opts.clipWhite !== undefined) {
-      negproOpts.clipWhite = parseFloat(opts.clipWhite);
-    }
-    if (opts.gamma !== undefined) {
-      negproOpts.gamma = opts.gamma;
-    }
-    if (opts.stretch === false) {
-      negproOpts.contrastStretch = false;
-    }
-    if (opts.borderExclude !== undefined) {
-      negproOpts.borderExclude = opts.borderExclude;
-    }
-    if (opts.pixelRejectionPercentage !== undefined) {
-      negproOpts.outlierRejection = opts.pixelRejectionPercentage;
-    }
-    if (opts.profile) {
-      negproOpts.useProfile = opts.profile;
-    }
-
-    processImages(images, negproOpts).then(function(results) {
+      if (event.type === 'process') {
+        if (!invertLabelPrinted) {
+          invertLabelPrinted = true;
+          console.log(atlasOpts.perImage ? "Inverting images (per-image balancing)" : "Inverting images");
+        }
+        var bar = Array.from({length: event.total}, function(_, i) { return i < event.done ? '▰' : '▱'; });
+        process.stdout.write('\r' + bar.join(' '));
+        return;
+      }
+    }).then(function(result) {
       process.stdout.write("\n");
 
-      var negproTime = Date.now();
-      console.log(`\n✨ Completed in ${((negproTime - startTime) / 1000).toFixed(1)}s!`);
-      console.log(`${results.length} ${results.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
-      if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms, negpro ${negproTime - convertTime}ms\x1b[0m`);
-      saveLastRunConfig();
+      var atlasTime = Date.now();
 
-      // Frame rejection notice
-      if (rejectedFramesEvent) {
-        var evt = rejectedFramesEvent;
-        var lines = [`\nℹ️ Note: ${evt.rejected.length} of ${evt.total} frames were not used when calculating shared color balance due to differing color characteristics:`];
-        evt.rejected.forEach(function(name) {
-          lines.push(`  ${path.basename(name)}.raw`);
-        });
-        lines.push("Use --no-frame-rejection to include all frames in color balancing.");
-        console.log(`\x1b[33m${lines.join('\n')}\x1b[0m`);
+      if (result.frameRejection && result.frameRejection.rejected.length > 0) {
+        var rej = result.frameRejection;
+        var rejLines = [`\x1b[33mℹ️  ${rej.rejected.length} of ${totalFiles} frames were excluded from shared color profile due to differing color characteristics:`];
+        rej.rejected.forEach(function(i) { rejLines.push(`  ${images[i].name.replace(/\.tiff$/, '.raw')}`); });
+        rejLines.push(`Use --no-frame-rejection to include all frames.\x1b[0m`);
+        console.log(rejLines.join('\n'));
       }
 
-      // Clipping risk warnings
-      if (processWarnings.length > 0) {
-        processWarnings.forEach(function(w) {
-          if (w.code === 'CLIPPING_RISK') {
-            var affected = w.affectedFiles.map(function(f) { return path.basename(f); });
-            var msg;
-            if (affected.length > totalFiles * 0.5) {
-              msg = `${affected.length} of ${totalFiles} images have narrow density range. Contrast stretch clipping may be too aggressive — consider using --clip 0.01 (or --clip-black / --clip-white individually).`;
-            } else {
-              msg = `${affected.length} image(s) have narrow density range (${affected.join(', ')}). Contrast stretch clipping may be too aggressive for these frames — consider using --clip 0.01 (or --clip-black / --clip-white individually).`;
-            }
-            console.log(`\n\x1b[33m⚠️ Warning: ${msg}\x1b[0m`);
-          } else {
-            console.log(`\n\x1b[33m⚠️ Warning: ${w.message}\x1b[0m`);
-          }
-        });
+      if (result.clippingRiskFrames && result.clippingRiskFrames.length > 0) {
+        var riskNames = result.clippingRiskFrames.map(function(i) { return images[i].name.replace(/\.tiff$/, '.raw'); });
+        var msg = riskNames.length > totalFiles * 0.5
+          ? `${riskNames.length} of ${totalFiles} images have narrow density range. Contrast stretch clipping may be too aggressive — consider using --clip 0.01.`
+          : `${riskNames.length} image(s) have narrow density range (${riskNames.join(', ')}). Clipping may be too aggressive for these frames — consider using --clip 0.01.`;
+        console.log(`\n\x1b[33m⚠️  ${msg}\x1b[0m`);
       }
+
+      console.log(`\n✨ Completed in ${((atlasTime - startTime) / 1000).toFixed(1)}s!`);
+      console.log(`${result.frames.length} ${result.frames.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
+      if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms, atlas ${atlasTime - convertTime}ms\x1b[0m`);
+      saveLastRunConfig(atlasOpts);
+      writeRunLog(images, result, atlasOpts, atlasTime - startTime);
+      if (result.sharedProfile) {
+        try {
+          var acceptedNames = result.frameRejection
+            ? result.frameRejection.included.map(function(i) { return images[i].name.replace(/\.tiff$/, '.raw'); })
+            : images.map(function(img) { return img.name.replace(/\.tiff$/, '.raw'); });
+          var profileJson = Object.assign({}, result.sharedProfile, {
+            metadata: {
+              pprcVersion: pkg.version,
+              createdAt: new Date().toISOString(),
+              inputDir: inputDir,
+              inputFiles: acceptedNames,
+              inputSettings: {
+                gamma: atlasOpts.gamma,
+                contrastStretch: atlasOpts.contrastStretch,
+                clipBlackPct: atlasOpts.clipBlackPct,
+                clipWhitePct: atlasOpts.clipWhitePct,
+                outlierRejectionPct: atlasOpts.outlierRejectionPct,
+                borderExcludePct: atlasOpts.borderExcludePct,
+              },
+              _note: 'Profile from the last pprc run. Copy to ~/.pprc/profiles/<name>.json and use with --profile <name>.',
+            },
+          });
+          fs.mkdirSync(pprcProfilesDir, { recursive: true });
+          fs.writeFileSync(path.join(pprcProfilesDir, 'last_run.json'), JSON.stringify(profileJson, null, 2) + '\n');
+        } catch(e) {
+          if (DEBUG) console.error('Failed to write last_run_profile:', e);
+        }
+      }
+
     });
+  }
+
+  function buildAtlasOpts() {
+    var atlasOpts = {
+      gamma: 2.15,
+      contrastStretch: true,
+      clipBlackPct: 0.1,
+      clipWhitePct: 0.1,
+      borderExcludePct: 2.0,
+      outlierRejectionPct: 0.1,
+      perImage: false,
+      frameRejection: true,
+    };
+    if (opts.perImageBalancing) atlasOpts.perImage = true;
+    if (opts.frameRejection === false) atlasOpts.frameRejection = false;
+    if (opts.clip !== undefined) {
+      atlasOpts.clipBlackPct = parseFloat(opts.clip);
+      atlasOpts.clipWhitePct = parseFloat(opts.clip);
+    }
+    if (opts.clipBlack !== undefined) atlasOpts.clipBlackPct = parseFloat(opts.clipBlack);
+    if (opts.clipWhite !== undefined) atlasOpts.clipWhitePct = parseFloat(opts.clipWhite);
+    if (opts.gamma !== undefined) atlasOpts.gamma = opts.gamma;
+    if (opts.stretch === false) atlasOpts.contrastStretch = false;
+    if (opts.borderExclude !== undefined) atlasOpts.borderExcludePct = opts.borderExclude;
+    if (opts.pixelRejectionPercentage !== undefined) atlasOpts.outlierRejectionPct = opts.pixelRejectionPercentage;
+    if (loadedProfile) atlasOpts.useProfile = loadedProfile;
+    return atlasOpts;
+  }
+
+  function writeRunLog(images, result, atlasOpts, elapsedMs) {
+    try {
+      var p = result && result.sharedProfile;
+      var rej = result && result.frameRejection;
+
+      var lines = [
+        `pprc v${pkg.version}`,
+        `date: ${new Date().toISOString()}`,
+        ``,
+        `settings:`,
+        `  mode: ${opts.mode || 'negative'}`,
+        ...(atlasOpts ? [
+          `  gamma: ${atlasOpts.gamma}`,
+          `  contrast stretch: ${atlasOpts.contrastStretch}`,
+          `  clip-black: ${atlasOpts.clipBlackPct}%`,
+          `  clip-white: ${atlasOpts.clipWhitePct}%`,
+          `  pixel-rejection-percentage: ${atlasOpts.outlierRejectionPct}%`,
+          `  border-exclude: ${atlasOpts.borderExcludePct}%`,
+          `  profile: ${atlasOpts.perImage ? 'per-image' : 'shared (all images)'}`,
+          `  frame-rejection: ${atlasOpts.frameRejection}`,
+        ] : []),
+        `  input: ${inputDir}`,
+        `  output: ${outputDir}`,
+        ``,
+        ...(!noInvert ? [`inversion engine: ATLAS v${atlasPkg.version}`, ``] : []),
+      ];
+
+      if (p) {
+        lines.push(
+          `profile values:`,
+          `  min: [${p.channelMins.map(function(v) { return v.toFixed(6); }).join(', ')}]`,
+          `  blackPoint: ${p.blackPoint.toFixed(1)}`,
+          `  maskGammaGreen: ${p.maskGammaGreen.toFixed(4)}`,
+          `  maskGammaBlue: ${p.maskGammaBlue.toFixed(4)}`,
+          ``,
+        );
+      }
+
+      if (rej) {
+        if (rej.rejected.length > 0) {
+          lines.push(`frame rejection: rejected ${rej.rejected.length} of ${images.length} frames`);
+          rej.rejected.forEach(function(frameIdx, rejIdx) {
+            lines.push(`  ${images[frameIdx].name.replace(/\.tiff$/, '.raw')}:`);
+            (rej.rejectionReasons[rejIdx] || []).forEach(function(r) { lines.push(`    - ${r}`); });
+          });
+        } else {
+          lines.push(`frame rejection: enabled (no outliers detected)`);
+        }
+        lines.push(
+          `  acceptable gammaG range: [${rej.rangeG[0].toFixed(4)}, ${rej.rangeG[1].toFixed(4)}]`,
+          `  acceptable gammaB range: [${rej.rangeB[0].toFixed(4)}, ${rej.rangeB[1].toFixed(4)}]`,
+          `  acceptable R density range: [${rej.rangeDensity[0].toFixed(2)}x, ${rej.rangeDensity[1].toFixed(2)}x]`,
+          `  acceptable minR/minG ratio: [${rej.rangeRgRatio[0].toFixed(4)}, ${rej.rangeRgRatio[1].toFixed(4)}]`,
+          `  acceptable minR/minB ratio: [${rej.rangeRbRatio[0].toFixed(4)}, ${rej.rangeRbRatio[1].toFixed(4)}]`,
+          `  acceptable maxR range: [${rej.rangeMaxR[0].toFixed(4)}, ${rej.rangeMaxR[1].toFixed(4)}]`,
+          ``,
+        );
+      }
+
+      lines.push(`files:`);
+      if (result && result.frames) {
+        var sortedFrames = result.frames.slice().sort(function(a, b) {
+          return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+        });
+        sortedFrames.forEach(function(frame) {
+          var inputName = frame.name.replace(/\.tiff$/, '.raw');
+          var outputName = path.basename(frame.outputPath || frame.name);
+          var profileStr = p
+            ? `min=[${p.channelMins.map(function(v) { return v.toFixed(6); }).join(', ')}] blackPoint=${p.blackPoint.toFixed(1)} gammaG=${p.maskGammaGreen.toFixed(4)} gammaB=${p.maskGammaBlue.toFixed(4)}`
+            : 'per-image';
+          lines.push(`  ${inputName} → ${outputName}`, `    profile: ${profileStr}`);
+        });
+      } else {
+        images.forEach(function(img) {
+          var inputName = (img.name || img).replace(/\.tiff$/, '.raw');
+          lines.push(`  ${inputName}`);
+        });
+      }
+
+      lines.push(``, `processing time: ${elapsedMs}ms`);
+
+      fs.writeFileSync(path.join(outputDir, 'pprc_log.txt'), lines.join('\n') + '\n');
+    } catch(e) {
+      if (DEBUG) console.error('Failed to write log:', e);
+    }
   }
 })();
 
-function saveLastRunConfig() {
+function saveLastRunConfig(resolvedOpts) {
   try {
     if (!fs.existsSync(pprcConfigDir)) {
       fs.mkdirSync(pprcConfigDir, { recursive: true });
@@ -672,25 +723,26 @@ function saveLastRunConfig() {
       metadata: {
         pprcVersion: pkg.version,
         createdAt: new Date().toISOString(),
-        note: process.platform === 'win32'
+        _note: process.platform === 'win32'
           ? `Copy this file to config.json to reuse these settings: copy "%USERPROFILE%\\.pprc\\last_run_config.json" "%USERPROFILE%\\.pprc\\config.json"`
           : 'Copy this file to config.json to reuse these settings: cp ~/.pprc/last_run_config.json ~/.pprc/config.json'
       },
     };
 
-    // Save all non-default option values
-    if (opts.dirOut !== OUTPUT_DIR)     lastRun.dirOut = opts.dirOut;
-    if (opts.mode !== 'negative')       lastRun.mode = opts.mode;
-    if (opts.perImageBalancing)          lastRun.perImageBalancing = true;
-    if (opts.frameRejection === false)   lastRun.noFrameRejection = true;
-    if (opts.clip !== undefined)         lastRun.clip = opts.clip;
-    if (opts.clipBlack !== undefined)    lastRun.clipBlack = opts.clipBlack;
-    if (opts.clipWhite !== undefined)    lastRun.clipWhite = opts.clipWhite;
-    if (opts.gamma !== undefined)  lastRun.gamma = opts.gamma;
-    if (opts.stretch === false)          lastRun.noStretch = true;
-    if (opts.borderExclude !== undefined) lastRun.borderExclude = opts.borderExclude;
-    if (opts.pixelRejectionPercentage !== undefined) lastRun.pixelRejectionPercentage = opts.pixelRejectionPercentage;
-    if (opts.profile)                   lastRun.profile = opts.profile;
+    if (resolvedOpts) {
+      lastRun.gamma = resolvedOpts.gamma;
+      lastRun.noStretch = !resolvedOpts.contrastStretch;
+      lastRun.clipBlack = resolvedOpts.clipBlackPct;
+      lastRun.clipWhite = resolvedOpts.clipWhitePct;
+      lastRun.pixelRejectionPercentage = resolvedOpts.outlierRejectionPct;
+      lastRun.borderExclude = resolvedOpts.borderExcludePct;
+      lastRun.perImageBalancing = resolvedOpts.perImage;
+      lastRun.noFrameRejection = !resolvedOpts.frameRejection;
+      if (opts.profile) lastRun.profile = opts.profile;
+    } else {
+      if (opts.dirOut !== OUTPUT_DIR)     lastRun.dirOut = opts.dirOut;
+      if (opts.mode !== 'negative')       lastRun.mode = opts.mode;
+    }
 
     fs.writeFileSync(path.join(pprcConfigDir, 'last_run_config.json'), JSON.stringify(lastRun, null, 2) + '\n');
   } catch (e) {
