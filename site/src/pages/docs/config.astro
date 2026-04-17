@@ -15,13 +15,13 @@ import Docs from '../../layouts/Docs.astro';
 
   <h2>Saving config</h2>
   <p>The easiest way to create a config is with <code>--save-config</code>:</p>
-  <pre><code>pprc --clip 2.5 --dir-out ../DIR_NAME_inverted --save-config</code></pre>
+  <pre><code>pprc --clip 2.5 --dir-out ../INPUT_DIR_inverted --save-config</code></pre>
   <p>This saves the specified options and exits without processing.</p>
 
   <h2>Manual editing</h2>
   <p>You can also create or edit <code>~/.pprc/config.json</code> directly:</p>
   <pre><code>{`{
-  "dirOut": "../DIR_NAME_inverted",
+  "dirOut": "../INPUT_DIR_inverted",
   "clip": 2.5
 }`}</code></pre>
 

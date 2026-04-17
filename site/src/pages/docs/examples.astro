@@ -30,13 +30,13 @@ pprc</code></pre>
     not the current working directory.</em>
   </p>
 
-  <p>Use the <code>DIR_NAME</code> placeholder to include the input folder's name:</p>
+  <p>Use the <code>INPUT_DIR</code> placeholder to include the input folder's name:</p>
   <pre><code># If input folder is "roll_042", outputs to "roll_042_inverted"
-pprc --dir-out DIR_NAME_inverted</code></pre>
+pprc --dir-out INPUT_DIR_inverted</code></pre>
 
   <p>Combine both to place a named output beside the input folder:</p>
   <pre><code># If input folder is "roll_042", outputs to "../roll_042_inverted"
-pprc --dir-out ../DIR_NAME_inverted</code></pre>
+pprc --dir-out ../INPUT_DIR_inverted</code></pre>
 
   <h2>Skip inversion (for use with other tools)</h2>
   <p>Get raw 16-bit TIFFs without orange mask removal, ready for Negative Lab Pro, ColorPerfect, etc.:</p>
@@ -86,10 +86,10 @@ pprc --dir-out ../DIR_NAME_inverted</code></pre>
 
   <h2>Save global defaults</h2>
   <p>Save your preferred options so they apply to every run:</p>
-  <pre><code>pprc --clip 2.5 --dir-out ../DIR_NAME_inverted --save-config</code></pre>
+  <pre><code>pprc --clip 2.5 --dir-out ../INPUT_DIR_inverted --save-config</code></pre>
   <p><em>Defaults are saved to <code>~/.pprc/config.json</code> (<code>%USERPROFILE%\.pprc\config.json</code> on Windows).</em></p>
 
   <h2>Combining options</h2>
   <p>Per-image balancing with extra contrast, output beside the input folder:</p>
-  <pre><code>pprc --per-image-balancing --clip 0.5 --dir-out ../DIR_NAME_pprc</code></pre>
+  <pre><code>pprc --per-image-balancing --clip 0.5 --dir-out ../INPUT_DIR_pprc</code></pre>
 </Docs>

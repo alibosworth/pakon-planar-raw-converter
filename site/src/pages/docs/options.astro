@@ -18,15 +18,15 @@ import Docs from '../../layouts/Docs.astro';
   <h3><code>--dir-out [dir]</code></h3>
   <p>
     Specify the output directory. Defaults to <code>out/</code> inside the input directory.
-    Supports the <code>DIR_NAME</code> placeholder which is replaced with the input folder's name.
+    Supports the <code>INPUT_DIR</code> placeholder which is replaced with the input folder's name.
   </p>
   <p>
     If the output directory already exists, PPRC auto-increments the name
     (<code>out</code>, <code>out_2</code>, <code>out_3</code>, etc.).
   </p>
   <p>Start with <code>../</code> to place the output beside the input folder. Absolute paths are used as-is; if an absolute output directory already exists, PPRC stops with an error instead of auto-incrementing it.</p>
-  <pre><code>pprc --dir-out DIR_NAME_inverted
-pprc --dir-out ../DIR_NAME_pprc_out
+  <pre><code>pprc --dir-out INPUT_DIR_inverted
+pprc --dir-out ../INPUT_DIR_pprc_out
 pprc --dir-out /path/to/output</code></pre>
 
   <h2>Processing Mode</h2>
