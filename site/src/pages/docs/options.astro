@@ -41,49 +41,62 @@ pprc --dir-out /path/to/output</code></pre>
   <ul>
     <li><code>negative</code> — Invert color negative, remove orange mask (default)</li>
     <li><code>raw</code> — Output unconverted TIFFs for processing with another tool (Negative Lab Pro, ColorPerfect, Vuescan, etc.)</li>
-    <li><code>e6</code> — Slide film — no inversion, apply auto-level</li>
-    <li><code>bw</code> — Black &amp; white — invert, auto-level, greyscale output</li>
-    <li><code>bw-rgb</code> — Black &amp; white — invert, auto-level, RGB output</li>
+    <li><code>e6</code> — Slide film — no inversion, apply contrast stretch</li>
+    <li><code>bw</code> — Black &amp; white — invert, contrast stretch, monochrome TIFF</li>
+    <li><code>bw-rgb</code> — Black &amp; white — invert, contrast stretch, RGB TIFF</li>
   </ul>
 
-  <h2>Tuning</h2>
+  <h2>Contrast Stretch</h2>
+  <p>
+    After processing, PPRC applies a contrast stretch to map the output to the full tonal range.
+    This applies to all modes except <code>raw</code>. The options below control how the stretch
+    is computed. These options only apply when contrast stretch is enabled.
+  </p>
 
-  <h3><code>--clip &lt;percent&gt;</code></h3>
-  <p>Clip both black and white ends by N% during contrast stretch (default: 0.1). For example, <code>--clip 1</code> gives more contrast by clipping 1% on each end. Sets both <code>--clip-black</code> and <code>--clip-white</code> at once.</p>
+  <h3><code>--clip &lt;percent&gt;</code> <em style="font-weight: normal; font-size: 0.9em;">(only applies when contrast stretch is enabled)</em></h3>
+  <p>Clip both black and white ends by % when computing the stretch (default: 0.1). Sets both <code>--clip-black</code> and <code>--clip-white</code> at once.</p>
 
-  <h3><code>--clip-black &lt;percent&gt;</code></h3>
-  <p>Clip the darkest N% of pixels to black (default: 0.1).</p>
+  <h3><code>--clip-black &lt;percent&gt;</code> <em style="font-weight: normal; font-size: 0.9em;">(only applies when contrast stretch is enabled)</em></h3>
+  <p>Clip the darkest % of pixels to black (default: 0.1).</p>
 
-  <h3><code>--clip-white &lt;percent&gt;</code></h3>
-  <p>Clip the brightest N% of pixels to white (default: 0.1).</p>
+  <h3><code>--clip-white &lt;percent&gt;</code> <em style="font-weight: normal; font-size: 0.9em;">(only applies when contrast stretch is enabled)</em></h3>
+  <p>Clip the brightest % of pixels to white (default: 0.1).</p>
+
+  <h3><code>--border-exclude &lt;percent&gt;</code></h3>
+  <p>Exclude the outer % of each image from contrast stretch calculations (default: 2). Helps eliminate film holder and rebate artifacts from affecting the output levels. Also applied during inversion profiling in <code>--mode negative</code>.</p>
+
+  <h3><code>--no-stretch</code></h3>
+  <p>Disable contrast stretch entirely. No contrast stretch will be applied to the output.</p>
+
+  <h2>Negative Inversion</h2>
+  <p><em>Applies to: <code>--mode negative</code> only.</em></p>
+  <h3><code>--per-image-balancing</code></h3>
+  <p>By default, PPRC analyzes all frames together to compute a single shared color profile, which produces more consistent results but works best when processing a full roll at once. Use this flag to compute a separate inversion profile for each image instead.</p>
+
+  <h3><code>--no-frame-rejection</code> <em style="font-weight: normal; font-size: 0.9em;">(only applies when using shared whole-roll analysis)</em></h3>
+  <p>
+    By default, frames with very different color characteristics (e.g. backlit shots) are
+    automatically excluded from the shared profile so they don't skew the rest of the roll.
+    Use this flag to include all frames regardless.
+  </p>
+
+  <h3><code>--pixel-rejection-percentage &lt;percent&gt;</code></h3>
+  <p>Ignore the brightest/darkest % of pixels within each frame when computing the shared color profile (default: 0.1). Prevents dust spots and specular highlights from skewing the inversion profile.</p>
 
   <h3><code>--gamma &lt;value&gt;</code></h3>
   <p>Gamma correction applied during negative inversion (default: 2.15).</p>
 
-  <h3><code>--no-stretch</code></h3>
-  <p>Disable contrast stretch entirely.</p>
-
-  <h3><code>--border-exclude &lt;percent&gt;</code></h3>
-  <p>Exclude the outer N% of each image from profiling and contrast stretch (default: 2). Helps eliminate film holder and rebate artifacts.</p>
-
-  <h3><code>--pixel-rejection-percentage &lt;percent&gt;</code></h3>
-  <p>Ignore the brightest/darkest N% of pixels within a frame when computing the profile (default: 0.1). Prevents dust spots and specular highlights from skewing results.</p>
-
-  <h2>Image Analysis</h2>
-
-  <h3><code>--per-image-balancing</code></h3>
-  <p>Compute a separate inversion profile for each image instead of sharing one across the roll.</p>
-
-  <h3><code>--no-frame-rejection</code></h3>
-  <p>Include all frames in the shared profile, even outliers that would normally be excluded.</p>
-
   <h2>Profiles</h2>
+  <p><em>Applies to: <code>--mode negative</code> only.</em></p>
+  <p>
+    Profiles let you save and reuse the color analysis from one batch across future rolls of the same film stock.
+  </p>
 
   <h3><code>--save-profile &lt;name&gt;</code></h3>
-  <p>Analyze input files, save the computed inversion profile, then exit without processing. Profiles are stored in <code>~/.pprc/&lt;name&gt;.json</code>.</p>
+  <p>Analyze input files, save the computed inversion profile, then exit without processing. Profiles are stored in <code>~/.pprc/profiles/&lt;name&gt;.json</code>.</p>
 
   <h3><code>--profile &lt;name&gt;</code></h3>
-  <p>Use a previously saved inversion profile instead of analyzing the current batch. Useful for consistent results across multiple rolls of the same film stock. PPRC reads these profiles from <code>~/.pprc/&lt;name&gt;.json</code>.</p>
+  <p>Use a previously saved inversion profile instead of analyzing the current batch. Useful for consistent results across multiple rolls of the same film stock.</p>
 
   <h2>Utility</h2>
 
