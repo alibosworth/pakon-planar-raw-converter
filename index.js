@@ -706,6 +706,21 @@ if (opts.dir && !fs.existsSync(inputDir)) {
           `  acceptable maxR range: [${rej.rangeMaxR[0].toFixed(4)}, ${rej.rangeMaxR[1].toFixed(4)}]`,
           ``,
         );
+
+        if (rej.diagnostics && rej.diagnostics.length > 0) {
+          lines.push(`frame diagnostics:`);
+          rej.diagnostics.slice().sort(function(a, b) { return a.index - b.index; }).forEach(function(d) {
+            var name = images[d.index] ? images[d.index].name.replace(/\.tiff$/, '.raw') : `frame ${d.index}`;
+            var status = d.accepted ? 'accepted' : 'rejected';
+            var closeness = d.closeness !== undefined ? `  closeness=${d.closeness.toFixed(4)}` : '';
+            lines.push(`  ${name}: ${status}${closeness}`);
+            lines.push(`    gammaG=${d.impliedGammaG.toFixed(4)} gammaB=${d.impliedGammaB.toFixed(4)} densityR=${d.densityRangeR.toFixed(2)} minRatioRG=${d.minRatioRg.toFixed(4)} minRatioRB=${d.minRatioRb.toFixed(4)} maxR=${d.maxR.toFixed(4)}`);
+            if (d.reasons.length > 0) {
+              d.reasons.forEach(function(r) { lines.push(`    - ${r}`); });
+            }
+          });
+          lines.push(``);
+        }
       }
 
       lines.push(`files:`);
