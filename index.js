@@ -45,10 +45,11 @@ var updateCheckInterval = distTag === 'alpha' ? 1000 * 60 * 60
                         : 1000 * 60 * 60 * 24;
 updateNotifier({ pkg, distTag, updateCheckInterval }).notify({ isGlobal: true });
 
-var [{ Worker }, { processBuffers, saveProfile, loadProfile }, { Command, Help, Option }] = await Promise.all([
+var [{ Worker }, { processBuffers, saveProfile, loadProfile, contrastStretch }, { Command, Help, Option }, { writeTiff16 }] = await Promise.all([
   import('worker_threads'),
   import('@alibosworth/atlas-node'),
-  import('commander')
+  import('commander'),
+  import('./lib/write-tiff.js')
 ]);
 
 var bannerLines = [
@@ -141,9 +142,9 @@ program
           var pad = '                                                  ';
           result.push(pad + 'negative  Invert color negative, remove orange mask (default)');
           result.push(pad + 'raw       Output unconverted tiffs for processing with another tool');
-          result.push(pad + 'e6        Slide film — no inversion, apply auto-level');
-          result.push(pad + 'bw        Black & white — invert, auto-level, greyscale output');
-          result.push(pad + 'bw-rgb    Black & white — invert, auto-level, RGB output');
+          result.push(pad + 'e6        Slide film — no inversion, apply contrast stretch');
+          result.push(pad + 'bw        Black & white — invert, contrast stretch, greyscale output');
+          result.push(pad + 'bw-rgb    Black & white — invert, contrast stretch, RGB output');
         }
       }
       return result.join('\n');
@@ -261,10 +262,10 @@ Examples:
   Skip inversion — useful if you want to invert with another tool:
     pprc --mode raw
 
-  Process slide film (E6) scans — no inversion needed, just auto-levels:
+  Process slide film (E6) scans — no inversion needed, apply contrast stretch:
     pprc --mode e6
 
-  Process black and white film — invert and auto-level in greyscale:
+  Process black and white film — invert and apply contrast stretch in greyscale:
     pprc --mode bw
 
   Per-image balancing — useful when frames on a roll have very different exposures:
@@ -451,17 +452,42 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     convertTime = Date.now();
 
     if (noInvert) {
-      // buffers are actually file paths in non-negative modes
       var verb;
       if (opts.mode === 'e6') {
-        verb = "auto-leveled";
+        verb = "contrast-stretched";
       } else if (opts.mode === 'bw') {
-        verb = "inverted and auto-leveled greyscale";
+        verb = "inverted and contrast-stretched greyscale";
       } else if (opts.mode === 'bw-rgb') {
-        verb = "inverted and auto-leveled RGB";
+        verb = "inverted and contrast-stretched RGB";
       } else {
         verb = "raw";
       }
+
+      if (opts.mode !== 'raw') {
+        // Apply configurable contrast stretch and write TIFFs
+        var atlasOpts = buildAtlasOpts();
+        var software = `PPRC v${pkg.version}`;
+        buffers.forEach(function(buf) {
+          var stretched = opts.stretch === false
+            ? buf.pixels
+            : contrastStretch(buf.pixels, buf.width, buf.height, atlasOpts.clipBlackPct, atlasOpts.clipWhitePct, atlasOpts.borderExcludePct);
+
+          var finalPixels = stretched;
+          var finalChannels = 3;
+          if (opts.mode === 'bw') {
+            var pixelCount = buf.width * buf.height;
+            var gray = new Uint16Array(pixelCount);
+            for (var gi = 0; gi < pixelCount; gi++) {
+              gray[gi] = Math.round((stretched[gi * 3] + stretched[gi * 3 + 1] + stretched[gi * 3 + 2]) / 3);
+            }
+            finalPixels = gray;
+            finalChannels = 1;
+          }
+
+          writeTiff16(path.join(tiffDir, buf.name + '.tif'), finalPixels, buf.width, buf.height, finalChannels, software);
+        });
+      }
+
       console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
       console.log(`${buffers.length} ${buffers.length === 1 ? "file" : "files"} saved to '${tiffDir}' as ${verb} TIFF.`);
       if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms\x1b[0m`);
@@ -932,8 +958,9 @@ function convertRawFilesToTiff (data) {
 
 function convertRawToTiff (name, fileInfo) {
   var baseName = path.basename(name, ".raw");
-  var destinationFile = noInvert ? path.join(tiffDir, `${baseName}.tif`) : null;
-  var returnBuffer = !noInvert;
+  var isRaw = opts.mode === 'raw';
+  var destinationFile = isRaw ? path.join(tiffDir, `${baseName}.tif`) : null;
+  var returnBuffer = !isRaw;
 
   var mode = opts.mode === 'negative' ? 'default' : opts.mode;
 
