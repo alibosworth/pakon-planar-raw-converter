@@ -100,13 +100,14 @@ program
   .option('--clip-black <percent>', 'Clip darkest N% to black during contrast stretch (default: 0.1)', parseFloat)
   .option('--clip-white <percent>', 'Clip brightest N% to white during contrast stretch (default: 0.1)', parseFloat)
   .option('--clip <percent>', 'Clip both black and white ends by N% during contrast stretch', parseFloat)
-  .option('--gamma <value>', 'Gamma correction applied during negative inversion (default: 2.15)', parseFloat)
+  .option('--output-gamma <value>', 'Output tone gamma applied to the inverted image (default: 2.15)', parseFloat)
   .option('--no-stretch', 'Disable contrast stretch during inversion (default: enabled)')
   .option('--border-exclude <percent>', 'Exclude outer N% of image from profiling and contrast stretch (default: 2)', parseFloat)
   .option('--pixel-rejection-percentage <percent>', 'Ignore brightest/darkest N% of pixels when profiling (default: 0.1)', parseFloat)
   .option('--save-profile <name>', 'Analyze input files, save inversion profile to ~/.pprc/, then exit')
   .option('--profile <name>', 'Use a previously saved inversion profile from ~/.pprc/')
-  .option('--save-config', 'Save current options as defaults in ~/.pprc/config.json and exit')
+  .option('--save-config [name]', 'Save current options to ~/.pprc/configs/default.json (or <name>.json) and exit')
+  .option('--use-config <name>', 'Use a named config from ~/.pprc/configs/<name>.json instead of default')
   .addOption(new Option('--install-quick-action', 'Install macOS Finder right-click Quick Action for folders').hideHelp(process.platform !== 'darwin'))
   .addOption(new Option('--uninstall-quick-action', 'Remove the macOS Finder Quick Action').hideHelp(process.platform !== 'darwin'))
   .option('--examples', 'Show usage examples')
@@ -161,18 +162,49 @@ if (opts.outputDir) {
   opts.dirOut = opts.outputDir;
 }
 
-// Load pprc config (~/.pprc/config.json)
-var pprcConfigDir = path.join(os.homedir(), '.pprc');
+// Load pprc config (~/.pprc/configs/default.json or named config)
+var pprcConfigDir   = path.join(os.homedir(), '.pprc');
 var pprcProfilesDir = path.join(pprcConfigDir, 'profiles');
-var pprcConfigPath = path.join(pprcConfigDir, 'config.json');
+var pprcConfigsDir  = path.join(pprcConfigDir, 'configs');
+var defaultConfigPath = path.join(pprcConfigsDir, 'default.json');
+
+
+// Reject invalid flag combinations before any config path resolution or file I/O
+if (opts.useConfig && opts.saveConfig) {
+  exitWithError('--use-config and --save-config cannot be used together.\n  To load a config: pprc --use-config <name>\n  To save a config: pprc --save-config [name]');
+}
+
+// Validate --use-config name before any filesystem use
+if (opts.useConfig) validateProfileName(opts.useConfig, '--use-config');
+
+var pprcConfigPath = opts.useConfig
+  ? path.join(pprcConfigsDir, opts.useConfig + '.json')
+  : defaultConfigPath;
 var pprcConfig = {};
+
+if (opts.useConfig && !fs.existsSync(pprcConfigPath)) {
+  exitWithError(
+    `Config '${opts.useConfig}' not found.\n` +
+    `Expected: ${pprcConfigPath}\n` +
+    `Run pprc with \x1b[1m--save-config ${opts.useConfig}\x1b[0m to create it.`
+  );
+}
 
 if (fs.existsSync(pprcConfigPath)) {
   try {
     var { metadata, ...parsedConfig } = JSON.parse(fs.readFileSync(pprcConfigPath, 'utf8'));
     pprcConfig = parsedConfig;
   } catch (e) {
-    console.warn(`Warning: Could not parse ${pprcConfigPath}: ${e.message}`);
+    var isUtilityCommand = opts.saveConfig || opts.examples || opts.installQuickAction || opts.uninstallQuickAction;
+    if (isUtilityCommand) {
+      console.warn(`Warning: Could not parse config file ${pprcConfigPath}: ${e.message} (ignored)`);
+    } else {
+      var repairCmd = opts.useConfig ? `pprc --save-config ${opts.useConfig}` : `pprc --save-config`;
+      exitWithError(
+        `Could not parse config file ${pprcConfigPath}: ${e.message}\n` +
+        `Run \x1b[1m${repairCmd}\x1b[0m to regenerate a valid config.`
+      );
+    }
   }
 
   // Map of config keys to their commander option names and CLI flag names
@@ -185,7 +217,7 @@ if (fs.existsSync(pprcConfigPath)) {
     clip:              ['clip',              '--clip'],
     clipBlack:         ['clipBlack',         '--clip-black'],
     clipWhite:         ['clipWhite',         '--clip-white'],
-    gamma:       ['gamma',       '--gamma'],
+    toneGamma:   ['outputGamma', '--output-gamma'],
     noStretch:         ['stretch',           '--no-stretch'],
     borderExclude:     ['borderExclude',     '--border-exclude'],
     pixelRejectionPercentage: ['pixelRejectionPercentage', '--pixel-rejection-percentage'],
@@ -222,7 +254,10 @@ if (fs.existsSync(pprcConfigPath)) {
   }
 
   if (activeLines.length > 0 || overriddenLines.length > 0) {
-    var configLines = [`\x1b[3mUsing pprc global config (${pprcConfigPath}):`];
+    var configLabel = opts.useConfig
+      ? `\x1b[3mUsing pprc config '${opts.useConfig}' (${pprcConfigPath}):`
+      : `\x1b[3mUsing pprc default config (${pprcConfigPath}):`;
+    var configLines = [configLabel];
     configLines.push(...activeLines, ...overriddenLines);
     console.log(configLines.join('\n') + '\x1b[0m');
   }
@@ -280,8 +315,8 @@ Examples:
   Clip shadows and highlights separately:
     pprc --clip-black 0.5 --clip-white 0.1
 
-  Custom inversion gamma (default 2.15):
-    pprc --gamma 2.5
+  Custom output gamma (default 2.15):
+    pprc --output-gamma 2.5
 
   Disable contrast stretch:
     pprc --no-stretch
@@ -300,6 +335,12 @@ Examples:
 
   Save current options as global defaults:
     pprc --clip 2.5 --save-config
+
+  Save options as a named config (e.g. for black & white shooting):
+    pprc --mode bw --clip 1.0 --save-config bw
+
+  Use a named config:
+    pprc --use-config bw
 
   Install macOS Finder Quick Action — right-click folders to process:
     pprc --install-quick-action
@@ -351,11 +392,19 @@ if (opts.profile) {
 }
 
 if (opts.saveConfig) {
+  var saveConfigName = typeof opts.saveConfig === 'string' ? opts.saveConfig : null;
+  if (saveConfigName) validateProfileName(saveConfigName, '--save-config');
+  var saveConfigPath = saveConfigName
+    ? path.join(pprcConfigsDir, saveConfigName + '.json')
+    : defaultConfigPath;
+
   var config = {
     metadata: {
       pprcVersion: pkg.version,
       createdAt: new Date().toISOString(),
-      _note: 'pprc global config. CLI flags override these values.',
+      _note: saveConfigName
+        ? `pprc named config '${saveConfigName}'. Load with --use-config ${saveConfigName}. CLI flags override these values.`
+        : 'pprc default config. CLI flags override these values.',
     },
   };
 
@@ -366,17 +415,26 @@ if (opts.saveConfig) {
   if (opts.clip !== undefined)         config.clip = opts.clip;
   if (opts.clipBlack !== undefined)    config.clipBlack = opts.clipBlack;
   if (opts.clipWhite !== undefined)    config.clipWhite = opts.clipWhite;
-  if (opts.gamma !== undefined)        config.gamma = opts.gamma;
+  if (opts.outputGamma !== undefined)        config.toneGamma = opts.outputGamma;
   if (opts.stretch === false)          config.noStretch = true;
   if (opts.borderExclude !== undefined) config.borderExclude = opts.borderExclude;
   if (opts.pixelRejectionPercentage !== undefined) config.pixelRejectionPercentage = opts.pixelRejectionPercentage;
   if (opts.profile)                    config.profile = opts.profile;
 
-  if (!fs.existsSync(pprcConfigDir)) {
-    fs.mkdirSync(pprcConfigDir, { recursive: true });
+  if (!fs.existsSync(pprcConfigsDir)) {
+    fs.mkdirSync(pprcConfigsDir, { recursive: true });
   }
-  fs.writeFileSync(pprcConfigPath, JSON.stringify(config, null, 2) + '\n');
-  console.log(`Config saved to ${pprcConfigPath}`);
+  fs.writeFileSync(saveConfigPath, JSON.stringify(config, null, 2) + '\n');
+  var savedLabel = saveConfigName
+    ? `Config '${saveConfigName}' saved to ${saveConfigPath}`
+    : `Default config saved to ${saveConfigPath}`;
+  console.log(savedLabel);
+  if (opts.profile) {
+    var runsScope = saveConfigName
+      ? `all runs using the '${saveConfigName}' config`
+      : 'all future runs';
+    console.warn(`\x1b[33mWarning: inversion profile '${opts.profile}' will be applied to ${runsScope}. Remove it from the config to use dynamic per-run analysis in the future.\x1b[0m`);
+  }
   process.exit(0);
 }
 
@@ -602,7 +660,7 @@ if (opts.dir && !fs.existsSync(inputDir)) {
               inputDir: inputDir,
               inputFiles: acceptedNames,
               inputSettings: {
-                gamma: atlasOpts.gamma,
+                toneGamma: atlasOpts.gamma,
                 contrastStretch: atlasOpts.contrastStretch,
                 clipBlackPct: atlasOpts.clipBlackPct,
                 clipWhitePct: atlasOpts.clipWhitePct,
@@ -641,7 +699,7 @@ if (opts.dir && !fs.existsSync(inputDir)) {
     }
     if (opts.clipBlack !== undefined) atlasOpts.clipBlackPct = parseFloat(opts.clipBlack);
     if (opts.clipWhite !== undefined) atlasOpts.clipWhitePct = parseFloat(opts.clipWhite);
-    if (opts.gamma !== undefined) atlasOpts.gamma = opts.gamma;
+    if (opts.outputGamma !== undefined) atlasOpts.gamma = opts.outputGamma;
     if (opts.stretch === false) atlasOpts.contrastStretch = false;
     if (opts.borderExclude !== undefined) atlasOpts.borderExcludePct = opts.borderExclude;
     if (opts.pixelRejectionPercentage !== undefined) atlasOpts.outlierRejectionPct = opts.pixelRejectionPercentage;
@@ -661,7 +719,7 @@ if (opts.dir && !fs.existsSync(inputDir)) {
         `settings:`,
         `  mode: ${opts.mode || 'negative'}`,
         ...(atlasOpts ? [
-          `  gamma: ${atlasOpts.gamma}`,
+          `  tone-gamma: ${atlasOpts.gamma}`,
           `  contrast stretch: ${atlasOpts.contrastStretch}`,
           `  clip-black: ${atlasOpts.clipBlackPct}%`,
           `  clip-white: ${atlasOpts.clipWhitePct}%`,
@@ -677,9 +735,25 @@ if (opts.dir && !fs.existsSync(inputDir)) {
       ];
 
       if (p) {
+        var channelNames = ['R', 'G', 'B'];
+        lines.push(`profile values:`);
+        lines.push(`  min: [${p.channelMins.map(function(v) { return v.toFixed(6); }).join(', ')}]`);
+        if (p.channelMinIndices) {
+          lines.push(`  min frames: [${p.channelMinIndices.map(function(i, c) {
+            var name = images[i] ? images[i].name.replace(/\.tiff$/, '.raw') : `frame ${i}`;
+            return `${channelNames[c]}:${name}`;
+          }).join(', ')}]`);
+        }
+        if (p.channelMaxes) {
+          lines.push(`  max: [${p.channelMaxes.map(function(v) { return v.toFixed(6); }).join(', ')}]`);
+        }
+        if (p.channelMaxIndices) {
+          lines.push(`  max frames: [${p.channelMaxIndices.map(function(i, c) {
+            var name = images[i] ? images[i].name.replace(/\.tiff$/, '.raw') : `frame ${i}`;
+            return `${channelNames[c]}:${name}`;
+          }).join(', ')}]`);
+        }
         lines.push(
-          `profile values:`,
-          `  min: [${p.channelMins.map(function(v) { return v.toFixed(6); }).join(', ')}]`,
           `  blackPoint: ${p.blackPoint.toFixed(1)}`,
           `  maskGammaGreen: ${p.maskGammaGreen.toFixed(4)}`,
           `  maskGammaBlue: ${p.maskGammaBlue.toFixed(4)}`,
@@ -762,13 +836,13 @@ function saveLastRunConfig(resolvedOpts) {
         pprcVersion: pkg.version,
         createdAt: new Date().toISOString(),
         _note: process.platform === 'win32'
-          ? `Copy this file to config.json to reuse these settings: copy "%USERPROFILE%\\.pprc\\last_run_config.json" "%USERPROFILE%\\.pprc\\config.json"`
-          : 'Copy this file to config.json to reuse these settings: cp ~/.pprc/last_run_config.json ~/.pprc/config.json'
+          ? `Copy this file to configs/default.json to reuse these settings: copy "%USERPROFILE%\\.pprc\\last_run_config.json" "%USERPROFILE%\\.pprc\\configs\\default.json"`
+          : 'Copy this file to configs/default.json to reuse these settings: cp ~/.pprc/last_run_config.json ~/.pprc/configs/default.json'
       },
     };
 
     if (resolvedOpts) {
-      lastRun.gamma = resolvedOpts.gamma;
+      lastRun.toneGamma = resolvedOpts.gamma;
       lastRun.noStretch = !resolvedOpts.contrastStretch;
       lastRun.clipBlack = resolvedOpts.clipBlackPct;
       lastRun.clipWhite = resolvedOpts.clipWhitePct;

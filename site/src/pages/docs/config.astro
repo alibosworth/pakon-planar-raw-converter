@@ -5,7 +5,7 @@ import Docs from '../../layouts/Docs.astro';
 <Docs title="Global Config">
   <h1>Global Config</h1>
   <p>
-    You can save default settings in <code>~/.pprc/config.json</code> so they apply to every
+    You can save default settings in <code>~/.pprc/configs/default.json</code> so they apply to every
     run without needing CLI flags. CLI flags always take priority over config values.
   </p>
   <p>
@@ -18,8 +18,20 @@ import Docs from '../../layouts/Docs.astro';
   <pre><code>pprc --clip 2.5 --dir-out ../INPUT_DIR_inverted --save-config</code></pre>
   <p>This saves the specified options and exits without processing.</p>
 
+  <h2>Named configs</h2>
+  <p>
+    You can save named configs for different workflows and switch between them with
+    <code>--use-config</code>:
+  </p>
+  <pre><code>pprc --mode bw --clip 1.0 --save-config bw</code></pre>
+  <pre><code>pprc --use-config bw</code></pre>
+  <p>
+    Named configs are saved to <code>~/.pprc/configs/&lt;name&gt;.json</code> and are complete
+    replacements for the default config — they are not merged with it.
+  </p>
+
   <h2>Manual editing</h2>
-  <p>You can also create or edit <code>~/.pprc/config.json</code> directly:</p>
+  <p>You can also create or edit <code>~/.pprc/configs/default.json</code> directly:</p>
   <pre><code>{`{
   "dirOut": "../INPUT_DIR_inverted",
   "clip": 2.5
@@ -35,7 +47,7 @@ import Docs from '../../layouts/Docs.astro';
     <li><code>clip</code> — clip both ends by N%</li>
     <li><code>clipBlack</code> — clip darkest N%</li>
     <li><code>clipWhite</code> — clip brightest N%</li>
-    <li><code>gamma</code> — inversion gamma</li>
+    <li><code>toneGamma</code> — output tone gamma</li>
     <li><code>noStretch</code> — disable contrast stretch (boolean)</li>
     <li><code>borderExclude</code> — exclude outer N% from profiling</li>
     <li><code>pixelRejectionPercentage</code> — ignore brightest/darkest N% of pixels</li>
@@ -48,9 +60,9 @@ import Docs from '../../layouts/Docs.astro';
     If you liked the results, you can copy it to use as your config:
   </p>
   <p><strong>macOS / Linux:</strong></p>
-  <pre><code>cp ~/.pprc/last_run_config.json ~/.pprc/config.json</code></pre>
+  <pre><code>cp ~/.pprc/last_run_config.json ~/.pprc/configs/default.json</code></pre>
   <p><strong>Windows:</strong></p>
-  <pre><code>copy %USERPROFILE%\.pprc\last_run_config.json %USERPROFILE%\.pprc\config.json</code></pre>
+  <pre><code>copy %USERPROFILE%\.pprc\last_run_config.json %USERPROFILE%\.pprc\configs\default.json</code></pre>
 
   <h2>Config display</h2>
   <p>

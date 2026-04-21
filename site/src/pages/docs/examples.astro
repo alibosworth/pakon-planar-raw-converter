@@ -62,8 +62,8 @@ pprc --dir-out ../INPUT_DIR_inverted</code></pre>
   <pre><code>pprc --clip-black 0.5 --clip-white 0.2</code></pre>
 
   <h2>Custom gamma</h2>
-  <p>Adjust the inversion gamma (default: 2.15):</p>
-  <pre><code>pprc --gamma 2.5</code></pre>
+  <p>Adjust the output gamma applied during inversion (default: 2.15):</p>
+  <pre><code>pprc --output-gamma 2.5</code></pre>
 
   <h2>Disable contrast stretch</h2>
   <pre><code>pprc --no-stretch</code></pre>
@@ -87,7 +87,7 @@ pprc --dir-out ../INPUT_DIR_inverted</code></pre>
   <h2>Save global defaults</h2>
   <p>Save your preferred options so they apply to every run:</p>
   <pre><code>pprc --clip 2.5 --dir-out ../INPUT_DIR_inverted --save-config</code></pre>
-  <p><em>Defaults are saved to <code>~/.pprc/config.json</code> (<code>%USERPROFILE%\.pprc\config.json</code> on Windows).</em></p>
+  <p><em>Defaults are saved to <code>~/.pprc/configs/default.json</code> (<code>%USERPROFILE%\.pprc\configs\default.json</code> on Windows).</em></p>
 
   <h2>Combining options</h2>
   <p>Per-image balancing with extra contrast, output beside the input folder:</p>

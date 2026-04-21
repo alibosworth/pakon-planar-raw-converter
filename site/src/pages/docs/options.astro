@@ -83,8 +83,8 @@ pprc --dir-out /path/to/output</code></pre>
   <h3><code>--pixel-rejection-percentage &lt;percent&gt;</code></h3>
   <p>Ignore the brightest/darkest % of pixels within each frame when computing the shared color profile (default: 0.1). Prevents dust spots and specular highlights from skewing the inversion profile.</p>
 
-  <h3><code>--gamma &lt;value&gt;</code></h3>
-  <p>Gamma correction applied during negative inversion (default: 2.15).</p>
+  <h3><code>--output-gamma &lt;value&gt;</code></h3>
+  <p>Output gamma applied during negative inversion (default: 2.15).</p>
 
   <h2>Profiles</h2>
   <p><em>Applies to: <code>--mode negative</code> only.</em></p>
@@ -100,8 +100,11 @@ pprc --dir-out /path/to/output</code></pre>
 
   <h2>Utility</h2>
 
-  <h3><code>--save-config</code></h3>
-  <p>Save the current CLI options as global defaults to <code>~/.pprc/config.json</code> and exit. See <a href="/docs/config">Global Config</a> for details.</p>
+  <h3><code>--save-config [name]</code></h3>
+  <p>Save the current CLI options to <code>~/.pprc/configs/default.json</code> (or <code>&lt;name&gt;.json</code>) and exit. See <a href="/docs/config">Global Config</a> for details.</p>
+
+  <h3><code>--use-config &lt;name&gt;</code></h3>
+  <p>Load a named config from <code>~/.pprc/configs/&lt;name&gt;.json</code> instead of the default. See <a href="/docs/config">Global Config</a> for details.</p>
 
   <h3><code>--install-quick-action</code> / <code>--uninstall-quick-action</code></h3>
   <p>Install or remove the macOS Finder Quick Action.</p>
