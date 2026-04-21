@@ -189,7 +189,7 @@ For best results, run PPRC on a full roll together when possible instead of proc
 
 * `--clip-white <percent>` Clip the brightest N% of pixels to white (default: 0.1).
 
-* `--gamma <value>` Gamma correction applied during negative inversion (default: 2.15).
+* `--output-gamma <value>` Output gamma applied during negative inversion (default: 2.15).
 
 * `--no-stretch` Disable contrast stretch during inversion (enabled by default).
 
@@ -205,7 +205,9 @@ For best results, run PPRC on a full roll together when possible instead of proc
 
 #### Utility
 
-* `--save-config` Save current options as defaults in `~/.pprc/config.json` and exit. For example: `pprc --clip 2.5 --save-config`.
+* `--save-config [name]` Save current options to `~/.pprc/configs/default.json` (or `<name>.json`) and exit. For example: `pprc --clip 2.5 --save-config`.
+
+* `--use-config <name>` Load a named config from `~/.pprc/configs/<name>.json` instead of the default. For example: `pprc --use-config bw`.
 
 * `--install-quick-action` / `--uninstall-quick-action` Install or remove the macOS Finder Quick Action.
 
@@ -215,7 +217,7 @@ For best results, run PPRC on a full roll together when possible instead of proc
 
 ## Global Config
 
-You can save default settings in `~/.pprc/config.json` so they apply to every run without needing CLI flags. CLI flags always take priority over config values.
+You can save default settings in `~/.pprc/configs/default.json` so they apply to every run without needing CLI flags. CLI flags always take priority over config values.
 
 The easiest way to create a config is with `--save-config`:
 
@@ -223,7 +225,14 @@ The easiest way to create a config is with `--save-config`:
 pprc --clip 2.5 --dir-out ../INPUT_DIR_inverted --save-config
 ```
 
-You can also manually create or edit `~/.pprc/config.json`:
+You can also save named configs for different workflows and switch between them:
+
+```
+pprc --mode bw --clip 1.0 --save-config bw
+pprc --use-config bw
+```
+
+You can also manually create or edit `~/.pprc/configs/default.json`:
 
 ```json
 {
@@ -235,7 +244,7 @@ You can also manually create or edit `~/.pprc/config.json`:
 After each run, pprc saves the effective settings to `~/.pprc/last_run_config.json`. If you liked the results, you can copy it to use as your config:
 
 ```
-cp ~/.pprc/last_run_config.json ~/.pprc/config.json
+cp ~/.pprc/last_run_config.json ~/.pprc/configs/default.json
 ```
 
 When settings are loaded from config, pprc displays them at startup so you always know what's being applied.
