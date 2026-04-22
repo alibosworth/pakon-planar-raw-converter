@@ -185,9 +185,9 @@ For best results, run PPRC on a full roll together when possible instead of proc
 
 * `--clip <percent>` Clip both black and white ends by N% during contrast stretch. For example, `--clip 1` gives more contrast by clipping 1% on each end.
 
-* `--clip-black <percent>` Clip the darkest N% of pixels to black (default: 0.1).
+* `--clip-black <percent>` Clip the darkest N% of pixels to black (default: 0.001).
 
-* `--clip-white <percent>` Clip the brightest N% of pixels to white (default: 0.1).
+* `--clip-white <percent>` Clip the brightest N% of pixels to white (default: 0.001).
 
 * `--output-gamma <value>` Output gamma applied during negative inversion (default: 2.15).
 

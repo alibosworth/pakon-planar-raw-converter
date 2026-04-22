@@ -97,8 +97,8 @@ program
   .addOption(new Option('--mode <mode>', 'Processing mode').choices(['negative', 'raw', 'e6', 'bw', 'bw-rgb']).default('negative'))
   .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing')
   .option('--no-frame-rejection', 'Disable outlier frame rejection when computing shared inversion profile')
-  .option('--clip-black <percent>', 'Clip darkest N% to black during contrast stretch (default: 0.1)', parseFloat)
-  .option('--clip-white <percent>', 'Clip brightest N% to white during contrast stretch (default: 0.1)', parseFloat)
+  .option('--clip-black <percent>', 'Clip darkest N% to black during contrast stretch (default: 0.001)', parseFloat)
+  .option('--clip-white <percent>', 'Clip brightest N% to white during contrast stretch (default: 0.001)', parseFloat)
   .option('--clip <percent>', 'Clip both black and white ends by N% during contrast stretch', parseFloat)
   .option('--output-gamma <value>', 'Output tone gamma applied to the inverted image (default: 2.15)', parseFloat)
   .option('--no-stretch', 'Disable contrast stretch during inversion (default: enabled)')
@@ -663,7 +663,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
               inputDir: inputDir,
               inputFiles: acceptedNames,
               inputSettings: {
-                toneGamma: atlasOpts.gamma,
+                toneGamma: atlasOpts.toneGamma,
                 contrastStretch: atlasOpts.contrastStretch,
                 clipBlackPct: atlasOpts.clipBlackPct,
                 clipWhitePct: atlasOpts.clipWhitePct,
@@ -685,10 +685,11 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
 
   function buildAtlasOpts() {
     var atlasOpts = {
-      gamma: 2.15,
+      toneGamma: 2.15,
+      srgbEncodeOutput: false,
       contrastStretch: true,
-      clipBlackPct: 0.1,
-      clipWhitePct: 0.1,
+      clipBlackPct: 0.001,
+      clipWhitePct: 0.001,
       borderExcludePct: 2.0,
       outlierRejectionPct: 0.1,
       perImage: false,
@@ -702,7 +703,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     }
     if (opts.clipBlack !== undefined) atlasOpts.clipBlackPct = parseFloat(opts.clipBlack);
     if (opts.clipWhite !== undefined) atlasOpts.clipWhitePct = parseFloat(opts.clipWhite);
-    if (opts.outputGamma !== undefined) atlasOpts.gamma = opts.outputGamma;
+    if (opts.outputGamma !== undefined) atlasOpts.toneGamma = opts.outputGamma;
     if (opts.stretch === false) atlasOpts.contrastStretch = false;
     if (opts.borderExclude !== undefined) atlasOpts.borderExcludePct = opts.borderExclude;
     if (opts.pixelRejectionPercentage !== undefined) atlasOpts.outlierRejectionPct = opts.pixelRejectionPercentage;
@@ -722,7 +723,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
         `settings:`,
         `  mode: ${opts.mode || 'negative'}`,
         ...(atlasOpts ? [
-          `  tone-gamma: ${atlasOpts.gamma}`,
+          `  tone-gamma: ${atlasOpts.toneGamma}`,
           `  contrast stretch: ${atlasOpts.contrastStretch}`,
           `  clip-black: ${atlasOpts.clipBlackPct}%`,
           `  clip-white: ${atlasOpts.clipWhitePct}%`,
@@ -758,8 +759,8 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
         }
         lines.push(
           `  blackPoint: ${p.blackPoint.toFixed(1)}`,
-          `  maskGammaGreen: ${p.maskGammaGreen.toFixed(4)}`,
-          `  maskGammaBlue: ${p.maskGammaBlue.toFixed(4)}`,
+          `  channelSlopeRatioG: ${p.channelSlopeRatioG.toFixed(4)}`,
+          `  channelSlopeRatioB: ${p.channelSlopeRatioB.toFixed(4)}`,
           ``,
         );
       }
@@ -809,7 +810,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
           var inputName = frame.name.replace(/\.tiff$/, '.raw');
           var outputName = path.basename(frame.outputPath || frame.name);
           var profileStr = p
-            ? `min=[${p.channelMins.map(function(v) { return v.toFixed(6); }).join(', ')}] blackPoint=${p.blackPoint.toFixed(1)} gammaG=${p.maskGammaGreen.toFixed(4)} gammaB=${p.maskGammaBlue.toFixed(4)}`
+            ? `min=[${p.channelMins.map(function(v) { return v.toFixed(6); }).join(', ')}] blackPoint=${p.blackPoint.toFixed(1)} gammaG=${p.channelSlopeRatioG.toFixed(4)} gammaB=${p.channelSlopeRatioB.toFixed(4)}`
             : 'per-image';
           lines.push(`  ${inputName} → ${outputName}`, `    profile: ${profileStr}`);
         });
