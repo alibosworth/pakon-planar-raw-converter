@@ -62,11 +62,7 @@ Breaking changes
 - The pipeline no longer creates intermediate TIFF files. Raw files are converted to pixel buffers in memory and passed directly to the processing engine. To get raw 16-bit TIFFs for use with another tool (Negative Lab Pro, ColorPerfect, etc.), use `pprc --mode raw`.
 - Contrast stretch now clips 0.001% on each end by default. Without clipping, a single dust speck or blown highlight can anchor the stretch endpoint, compressing all of the real film data into a fraction of the available tonal range. The default 0.001% clip is conservative enough to be invisible in normal images while preventing outliers from degrading the result. Use `--clip 0` to disable clipping, or `--no-stretch` to disable contrast stretch entirely.
 - Output TIFFs are now tagged with an AdobeRGB-compatible ICC profile. The profile may appear as "ClayRGB" in some applications — this is Elle Stone's name for the AdobeRGB-1998 primaries (same D65 whitepoint and gamut, named to avoid the Adobe trademark).
-
-
-# 0.1.0
-
-Replace negfix8 with a new library called negpro that is faster and has more features
+- License changed from GPL-3.0 to PolyForm Noncommercial 1.0.0. Free for personal, educational, and non-commercial use. Commercial use requires a separate license.
 
 # 0.0.13 
 
