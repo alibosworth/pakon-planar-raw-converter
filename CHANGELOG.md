@@ -1,6 +1,6 @@
 # 1.0.0
 
-Large update bringing simplified installation, significantly faster speeds, better default results, and more flexibility.
+Full rewrite of a 10-year-old tool, rebuilt from the ground up for simplified installation, significantly faster speeds, better default results, and more flexibility.
 
 Previously the inversion and orange mask removal was handled by a third-party tool called negfix8. That has been replaced with a purpose-built processing engine with many improvements:
 
