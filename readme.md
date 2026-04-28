@@ -39,7 +39,7 @@ By default, all images in a batch are analyzed together to compute a shared colo
 
 During analysis, the very brightest and darkest pixels within each frame are ignored so that dust spots or specular highlights don't skew the profile. Outlier frames (e.g. backlit shots with very different color characteristics) are also automatically detected and excluded from the shared profile so they don't throw off the rest of the roll.
 
-These defaults are designed to produce better roll-wide results, not to be a bit-for-bit archival transform. If you want the closest thing to a straight preservation path, use `--mode raw` to export the Pakon's 16-bit data as standard TIFFs without negpro inversion. If you want to keep negpro's inversion but make it less aggressive, you can tune or disable clipping, contrast stretch, and pixel rejection.
+These defaults are designed to produce better roll-wide results, not to be a bit-for-bit archival transform. If you want the closest thing to a straight preservation path, use `--mode raw` to export the Pakon's 16-bit data as standard TIFFs without inversion. If you want to keep the inversion but make it less aggressive, you can tune or disable clipping, contrast stretch, and pixel rejection.
 
 You can tune the inversion behavior with CLI options or save your preferences in a global config file so they're used automatically (see [Global Config](#global-config) below).
 
