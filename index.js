@@ -604,7 +604,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       if (event.type === 'analyze') {
         if (!analyzeLabelPrinted) {
           analyzeLabelPrinted = true;
-          console.log("Analysing images to determine average data for inversion");
+          console.log("Analysing images for inversion and orange mask removal");
         }
         var bar = Array.from({length: event.total}, function(_, i) { return i < event.done ? '▰' : '▱'; });
         process.stdout.write('\r' + bar.join(' '));
