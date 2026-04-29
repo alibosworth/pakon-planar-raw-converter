@@ -9,6 +9,13 @@
   <link rel="stylesheet" href="{{ '/normalize.css' | relative_url }}">
   <link rel="stylesheet" href="{{ '/featherlight.css' | relative_url }}">
   <link rel="stylesheet" href="{{ '/style.css' | relative_url }}">
+  <!-- Privacy-friendly analytics by Plausible -->
+  <script async src="https://plausible.io/js/pa-XpbDfd1ZHFbc9FJtX0zWF.js"></script>
+  <script>
+    window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+    plausible.init()
+  </script>
+
 </head>
 <body class="{{ page.body_class }}">
   <div id="content" class="{{ page.content_class | default: 'page' }}">
