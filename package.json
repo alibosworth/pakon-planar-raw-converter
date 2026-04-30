@@ -34,12 +34,12 @@
   "author": "Ali Bosworth <ali@alibosworth.com> (https://alibosworth.com/)",
   "license": "PolyForm-Noncommercial-1.0.0",
   "bin": {
-    "pakon-planar-raw-converter": "./index.js",
-    "pprc": "./index.js"
+    "pakon-planar-raw-converter": "index.js",
+    "pprc": "index.js"
   },
   "preferGlobal": true,
   "dependencies": {
-    "@alibosworth/atlas-node": "^2026.4.22-alpha.0",
+    "@alibosworth/atlas-node": "^2026.4.30-alpha.0",
     "bluebird": "^3.5.1",
     "commander": "^12.1.0",
     "update-notifier": "^7.3.1"
