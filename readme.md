@@ -31,7 +31,7 @@ PPRC is not a negative inversion editor — it doesn't offer manual color correc
 
 PPRC's output is intentionally neutral and data-rich rather than punchy or stylized. Images will look flatter than what you'd get from a more aggressive inversion tool, and this is by design. The goal is to preserve maximum editing headroom so you can make decisions yourself via your preferred workflow.
 
-If you want to use your own orange mask removal process, run with `--mode raw` to get raw data as 16-bit TIFF files to pipe through Negative Lab Pro, ColorPerfect, Vuescan, or any other tool.
+If you want to use your own orange mask removal process, run with `--mode raw` to get linear 16-bit TIFFs to pipe through Negative Lab Pro, ColorPerfect, Vuescan, or any other tool.
 
 ## How does the color inversion work?
 
@@ -39,7 +39,7 @@ By default, all images in a batch are analyzed together to compute a shared colo
 
 During analysis, the very brightest and darkest pixels within each frame are ignored so that dust spots or specular highlights don't skew the profile. Outlier frames (e.g. backlit shots with very different color characteristics) are also automatically detected and excluded from the shared profile so they don't throw off the rest of the roll.
 
-These defaults are designed to produce better roll-wide results, not to be a bit-for-bit archival transform. If you want the closest thing to a straight preservation path, use `--mode raw` to export the Pakon's 16-bit data as standard TIFFs without inversion. If you want to keep the inversion but make it less aggressive, you can tune or disable clipping, contrast stretch, and pixel rejection.
+These defaults are designed to produce better roll-wide results, not to be a bit-for-bit archival transform. If you want the closest thing to a straight preservation path, use `--mode raw` to export the Pakon's sensor data as linear 16-bit TIFFs without inversion. If you want to keep the inversion but make it less aggressive, you can tune or disable clipping, contrast stretch, and pixel rejection.
 
 You can tune the inversion behavior with CLI options or save your preferences in a global config file so they're used automatically (see [Global Config](#global-config) below).
 
