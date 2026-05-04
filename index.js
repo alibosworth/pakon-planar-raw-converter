@@ -142,7 +142,7 @@ program
         if (trimmed.startsWith('--mode')) {
           var pad = '                                                  ';
           result.push(pad + 'negative  Invert color negative, remove orange mask (default)');
-          result.push(pad + 'raw       Output unconverted tiffs for processing with another tool');
+          result.push(pad + 'raw       Output linear raw tiffs for processing with another tool');
           result.push(pad + 'e6        Slide film — no inversion, apply contrast stretch');
           result.push(pad + 'bw        Black & white — invert, contrast stretch, greyscale output');
           result.push(pad + 'bw-rgb    Black & white — invert, contrast stretch, RGB output');
@@ -371,6 +371,25 @@ if (opts.bw && program.getOptionValueSource('bw') !== 'default') {
 if (opts.bwRgb && program.getOptionValueSource('bwRgb') !== 'default') {
   console.warn("Warning: --bw-rgb is deprecated, use --mode bw-rgb instead");
   opts.mode = 'bw-rgb';
+}
+
+if (opts.mode === 'raw') {
+  var ignoredInRaw = [];
+  if (opts.outputGamma !== undefined)               ignoredInRaw.push('--output-gamma');
+  if (opts.clip !== undefined)                      ignoredInRaw.push('--clip');
+  if (opts.clipBlack !== undefined)                 ignoredInRaw.push('--clip-black');
+  if (opts.clipWhite !== undefined)                 ignoredInRaw.push('--clip-white');
+  if (opts.borderExclude !== undefined)             ignoredInRaw.push('--border-exclude');
+  if (opts.pixelRejectionPercentage !== undefined)  ignoredInRaw.push('--pixel-rejection-percentage');
+  if (opts.perImageBalancing)                       ignoredInRaw.push('--per-image-balancing');
+  if (opts.frameRejection === false)                ignoredInRaw.push('--no-frame-rejection');
+  if (opts.stretch === false)                       ignoredInRaw.push('--no-stretch');
+  if (opts.profile)                                 ignoredInRaw.push('--profile');
+  if (opts.saveProfile)                             ignoredInRaw.push('--save-profile');
+  if (ignoredInRaw.length > 0) {
+    var verb = ignoredInRaw.length === 1 ? 'is' : 'are';
+    console.warn(`\x1b[33mWarning: ${ignoredInRaw.join(', ')} ${verb} ignored with --mode raw (raw mode writes linear sensor data unmodified).\x1b[0m`);
+  }
 }
 
 function validateProfileName(name, flag) {
