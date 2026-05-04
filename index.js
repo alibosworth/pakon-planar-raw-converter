@@ -694,6 +694,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       outlierRejectionPct: 0.1,
       perImage: false,
       frameRejection: true,
+      inputTrc: 'linear',
     };
     if (opts.perImageBalancing) atlasOpts.perImage = true;
     if (opts.frameRejection === false) atlasOpts.frameRejection = false;
@@ -1072,7 +1073,12 @@ function convertRawToTiff (name, fileInfo) {
     worker.on('message', function(result) {
       resolve(result);
     });
-    worker.on('error', reject);
+    worker.on('error', function(err) {
+      if (err && err.message && err.message.indexOf('PPRC_RAW_OVERFLOW:') === 0) {
+        exitWithError(err.message.slice('PPRC_RAW_OVERFLOW:'.length).trim());
+      }
+      reject(err);
+    });
   });
 }
 
