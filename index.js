@@ -104,6 +104,9 @@ program
   .option('--no-stretch', 'Disable contrast stretch during inversion (default: enabled)')
   .option('--border-exclude <percent>', 'Exclude outer N% of image from profiling and contrast stretch (default: 2)', parseFloat)
   .option('--pixel-rejection-percentage <percent>', 'Ignore brightest/darkest N% of pixels when profiling (default: 0.1)', parseFloat)
+  .addOption(new Option('--colorspace-input <space>', 'Input RGB primaries (default: matches working space — adobergb by default)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto']))
+  .addOption(new Option('--colorspace-working <space>', 'Working RGB primaries used during processing (default: adobergb)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto']))
+  .addOption(new Option('--colorspace-output <space>', 'Output RGB primaries written to TIFFs (default: matches working)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto']))
   .option('--save-profile <name>', 'Analyze input files, save inversion profile to ~/.pprc/, then exit')
   .option('--profile <name>', 'Use a previously saved inversion profile from ~/.pprc/')
   .option('--save-config [name]', 'Save current options to ~/.pprc/configs/default.json (or <name>.json) and exit')
@@ -111,6 +114,7 @@ program
   .addOption(new Option('--install-quick-action', 'Install macOS Finder right-click Quick Action for folders').hideHelp(process.platform !== 'darwin'))
   .addOption(new Option('--uninstall-quick-action', 'Remove the macOS Finder Quick Action').hideHelp(process.platform !== 'darwin'))
   .option('--examples', 'Show usage examples')
+  .addOption(new Option('--debug-srgb-encode-output', 'Debug: pass srgbEncodeOutput=true to atlas').hideHelp())
   .option('--no-negfix', '[deprecated: use --mode raw] Skip negative inversion')
   .option('--dimensions [width]x[height]', '[deprecated] Manually specify pixel dimensions for headerless raw files (e.g. "4000x2000")')
   .option('--e6', '[deprecated: use --mode e6] Process slide film')
@@ -217,10 +221,13 @@ if (fs.existsSync(pprcConfigPath)) {
     clip:              ['clip',              '--clip'],
     clipBlack:         ['clipBlack',         '--clip-black'],
     clipWhite:         ['clipWhite',         '--clip-white'],
-    toneGamma:   ['outputGamma', '--output-gamma'],
+    outputGamma:       ['outputGamma',       '--output-gamma'],
     noStretch:         ['stretch',           '--no-stretch'],
     borderExclude:     ['borderExclude',     '--border-exclude'],
     pixelRejectionPercentage: ['pixelRejectionPercentage', '--pixel-rejection-percentage'],
+    colorspaceInput:   ['colorspaceInput',   '--colorspace-input'],
+    colorspaceWorking: ['colorspaceWorking', '--colorspace-working'],
+    colorspaceOutput:  ['colorspaceOutput',  '--colorspace-output'],
     profile:                  ['profile',                  '--profile'],
   };
 
@@ -384,6 +391,9 @@ if (opts.mode === 'raw') {
   if (opts.perImageBalancing)                       ignoredInRaw.push('--per-image-balancing');
   if (opts.frameRejection === false)                ignoredInRaw.push('--no-frame-rejection');
   if (opts.stretch === false)                       ignoredInRaw.push('--no-stretch');
+  if (opts.colorspaceInput !== undefined)           ignoredInRaw.push('--colorspace-input');
+  if (opts.colorspaceWorking !== undefined)         ignoredInRaw.push('--colorspace-working');
+  if (opts.colorspaceOutput !== undefined)          ignoredInRaw.push('--colorspace-output');
   if (opts.profile)                                 ignoredInRaw.push('--profile');
   if (opts.saveProfile)                             ignoredInRaw.push('--save-profile');
   if (ignoredInRaw.length > 0) {
@@ -434,10 +444,13 @@ if (opts.saveConfig) {
   if (opts.clip !== undefined)         config.clip = opts.clip;
   if (opts.clipBlack !== undefined)    config.clipBlack = opts.clipBlack;
   if (opts.clipWhite !== undefined)    config.clipWhite = opts.clipWhite;
-  if (opts.outputGamma !== undefined)        config.toneGamma = opts.outputGamma;
+  if (opts.outputGamma !== undefined)  config.outputGamma = opts.outputGamma;
   if (opts.stretch === false)          config.noStretch = true;
   if (opts.borderExclude !== undefined) config.borderExclude = opts.borderExclude;
   if (opts.pixelRejectionPercentage !== undefined) config.pixelRejectionPercentage = opts.pixelRejectionPercentage;
+  if (opts.colorspaceInput !== undefined)   config.colorspaceInput   = opts.colorspaceInput;
+  if (opts.colorspaceWorking !== undefined) config.colorspaceWorking = opts.colorspaceWorking;
+  if (opts.colorspaceOutput !== undefined)  config.colorspaceOutput  = opts.colorspaceOutput;
   if (opts.profile)                    config.profile = opts.profile;
 
   if (!fs.existsSync(pprcConfigsDir)) {
@@ -715,6 +728,9 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       frameRejection: true,
       inputTrc: 'linear',
     };
+    if (opts.colorspaceInput   !== undefined) atlasOpts.inputSpace   = opts.colorspaceInput;
+    if (opts.colorspaceWorking !== undefined) atlasOpts.workingSpace = opts.colorspaceWorking;
+    if (opts.colorspaceOutput  !== undefined) atlasOpts.outputSpace  = opts.colorspaceOutput;
     if (opts.perImageBalancing) atlasOpts.perImage = true;
     if (opts.frameRejection === false) atlasOpts.frameRejection = false;
     if (opts.clip !== undefined) {
@@ -728,6 +744,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     if (opts.borderExclude !== undefined) atlasOpts.borderExcludePct = opts.borderExclude;
     if (opts.pixelRejectionPercentage !== undefined) atlasOpts.outlierRejectionPct = opts.pixelRejectionPercentage;
     if (loadedProfile) atlasOpts.useProfile = loadedProfile;
+    if (opts.debugSrgbEncodeOutput) atlasOpts.srgbEncodeOutput = true;
     return atlasOpts;
   }
 
@@ -866,7 +883,7 @@ function saveLastRunConfig(resolvedOpts) {
     };
 
     if (resolvedOpts) {
-      lastRun.toneGamma = resolvedOpts.gamma;
+      lastRun.outputGamma = resolvedOpts.gamma;
       lastRun.noStretch = !resolvedOpts.contrastStretch;
       lastRun.clipBlack = resolvedOpts.clipBlackPct;
       lastRun.clipWhite = resolvedOpts.clipWhitePct;
