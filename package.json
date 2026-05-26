@@ -1,6 +1,6 @@
 {
   "name": "pakon-planar-raw-converter",
-  "version": "1.0.0-alpha.20260503-03",
+  "version": "1.0.0-alpha.20260519-01",
   "description": "A script to convert Pakon F-135+ Planar RAW scans from TLXClientDemo into usable files",
   "keywords": [
     "kodak",
@@ -39,7 +39,7 @@
   },
   "preferGlobal": true,
   "dependencies": {
-    "@alibosworth/atlas-node": "alpha",
+    "@alibosworth/atlas-node": "^2026.5.19-alpha.1",
     "bluebird": "^3.5.1",
     "commander": "^12.1.0",
     "update-notifier": "^7.3.1"
