@@ -104,9 +104,9 @@ program
   .option('--no-stretch', 'Disable contrast stretch during inversion (default: enabled)')
   .option('--border-exclude <percent>', 'Exclude outer N% of image from profiling and contrast stretch (default: 2)', parseFloat)
   .option('--pixel-rejection-percentage <percent>', 'Ignore brightest/darkest N% of pixels when profiling (default: 0.1)', parseFloat)
-  .addOption(new Option('--colorspace-input <space>', 'Input RGB primaries (default: matches working space — adobergb by default)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto']))
-  .addOption(new Option('--colorspace-working <space>', 'Working RGB primaries used during processing (default: adobergb)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto']))
-  .addOption(new Option('--colorspace-output <space>', 'Output RGB primaries written to TIFFs (default: matches working)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto']))
+  .addOption(new Option('--colorspace-input <space>', 'Input RGB primaries (default: adobergb)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto', 'acescg']))
+  .addOption(new Option('--colorspace-working <space>', 'Working RGB primaries used during processing (default: acescg)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto', 'acescg']))
+  .addOption(new Option('--colorspace-output <space>', 'Output RGB primaries written to TIFFs (default: adobergb)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto', 'acescg']))
   .option('--save-profile <name>', 'Analyze input files, save inversion profile to ~/.pprc/, then exit')
   .option('--profile <name>', 'Use a previously saved inversion profile from ~/.pprc/')
   .option('--save-config [name]', 'Save current options to ~/.pprc/configs/default.json (or <name>.json) and exit')
@@ -727,6 +727,9 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       perImage: false,
       frameRejection: true,
       inputTrc: 'linear',
+      inputSpace: 'adobergb',
+      workingSpace: 'acescg',
+      outputSpace: 'adobergb',
     };
     if (opts.colorspaceInput   !== undefined) atlasOpts.inputSpace   = opts.colorspaceInput;
     if (opts.colorspaceWorking !== undefined) atlasOpts.workingSpace = opts.colorspaceWorking;
@@ -768,6 +771,9 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
           `  border-exclude: ${atlasOpts.borderExcludePct}%`,
           `  profile: ${atlasOpts.perImage ? 'per-image' : 'shared (all images)'}`,
           `  frame-rejection: ${atlasOpts.frameRejection}`,
+          `  colorspace-input: ${atlasOpts.inputSpace}`,
+          `  colorspace-working: ${atlasOpts.workingSpace}`,
+          `  colorspace-output: ${atlasOpts.outputSpace}`,
         ] : []),
         `  input: ${inputDir}`,
         `  output: ${outputDir}`,
