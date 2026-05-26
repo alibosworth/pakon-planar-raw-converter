@@ -105,7 +105,7 @@ program
   .option('--border-exclude <percent>', 'Exclude outer N% of image from profiling and contrast stretch (default: 2)', parseFloat)
   .option('--pixel-rejection-percentage <percent>', 'Ignore brightest/darkest N% of pixels when profiling (default: 0.1)', parseFloat)
   .addOption(new Option('--colorspace-input <space>', 'Input RGB primaries (default: adobergb)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto', 'acescg']))
-  .addOption(new Option('--colorspace-working <space>', 'Working RGB primaries used during processing (default: acescg)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto', 'acescg']))
+  .addOption(new Option('--colorspace-working <space>', 'Working RGB primaries used during processing (default: adobergb)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto', 'acescg']))
   .addOption(new Option('--colorspace-output <space>', 'Output RGB primaries written to TIFFs (default: adobergb)').choices(['srgb', 'adobergb', 'rec2020', 'prophoto', 'acescg']))
   .option('--save-profile <name>', 'Analyze input files, save inversion profile to ~/.pprc/, then exit')
   .option('--profile <name>', 'Use a previously saved inversion profile from ~/.pprc/')
@@ -728,7 +728,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       frameRejection: true,
       inputTrc: 'linear',
       inputSpace: 'adobergb',
-      workingSpace: 'acescg',
+      workingSpace: 'adobergb',
       outputSpace: 'adobergb',
     };
     if (opts.colorspaceInput   !== undefined) atlasOpts.inputSpace   = opts.colorspaceInput;
