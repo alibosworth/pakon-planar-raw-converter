@@ -94,7 +94,9 @@ program
   .option('--dir [dir]', 'Directory containing .raw files to process (default: current directory)')
   .option('--dir-out [dir]', `Output directory (use INPUT_DIR for input folder name, start with '../' to place beside input)`, OUTPUT_DIR)
   .addOption(new Option('--output-dir [dir]', `Specify the output directory name`).hideHelp())
-  .addOption(new Option('--mode <mode>', 'Processing mode').choices(['negative', 'raw', 'e6', 'bw', 'bw-rgb']).default('negative'))
+  .addOption(new Option('--mode <modes>', 'Processing mode(s) — comma-separated, e.g. --mode raw,e6').argParser(function(val, acc) {
+    return (Array.isArray(acc) ? acc : []).concat(val.split(',').map(function(s) { return s.trim(); }).filter(Boolean));
+  }).default([], 'negative'))
   .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing')
   .option('--no-frame-rejection', 'Disable outlier frame rejection when computing shared inversion profile')
   .option('--clip-black <percent>', 'Clip darkest N% to black during contrast stretch (default: 0.001)', parseFloat)
@@ -358,29 +360,52 @@ Examples:
   process.exit(0);
 }
 
-// Handle deprecated flags
+// Normalize --mode into an array. It may arrive as an array (CLI flags),
+// a string (config file value), or undefined.
+if (typeof opts.mode === 'string') {
+  opts.mode = opts.mode.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+}
+if (!Array.isArray(opts.mode)) opts.mode = [];
+
+// Handle deprecated flags — each maps to the equivalent mode
 if (opts.negfix === false) {
   console.warn("Warning: --no-negfix is deprecated, use --mode raw instead");
-  opts.mode = 'raw';
+  opts.mode = opts.mode.concat('raw');
 }
 if (opts.invert === false && program.getOptionValueSource('invert') !== 'default') {
   console.warn("Warning: --no-invert is deprecated, use --mode raw instead");
-  opts.mode = 'raw';
+  opts.mode = opts.mode.concat('raw');
 }
 if (opts.e6 && program.getOptionValueSource('e6') !== 'default') {
   console.warn("Warning: --e6 is deprecated, use --mode e6 instead");
-  opts.mode = 'e6';
+  opts.mode = opts.mode.concat('e6');
 }
 if (opts.bw && program.getOptionValueSource('bw') !== 'default') {
   console.warn("Warning: --bw is deprecated, use --mode bw instead");
-  opts.mode = 'bw';
+  opts.mode = opts.mode.concat('bw');
 }
 if (opts.bwRgb && program.getOptionValueSource('bwRgb') !== 'default') {
   console.warn("Warning: --bw-rgb is deprecated, use --mode bw-rgb instead");
-  opts.mode = 'bw-rgb';
+  opts.mode = opts.mode.concat('bw-rgb');
 }
 
-if (opts.mode === 'raw') {
+// Resolve the final, deduped, validated list of modes to run
+var VALID_MODES = ['negative', 'raw', 'e6', 'bw', 'bw-rgb'];
+var modes = opts.mode.length ? opts.mode.slice() : ['negative'];
+modes = modes.filter(function(m, i) { return modes.indexOf(m) === i; });
+modes.forEach(function(m) {
+  if (VALID_MODES.indexOf(m) === -1) {
+    exitWithError(`Unknown mode '${m}'. Valid modes: ${VALID_MODES.join(', ')}.`);
+  }
+});
+var multiMode = modes.length > 1;
+var hasNegative = modes.indexOf('negative') !== -1;
+// raw-only run: let the workers write TIFFs directly and skip returning the
+// (large) decoded buffers to the main thread. Any other mode — including
+// multi-mode that involves raw — needs the buffer to feed its transform.
+var rawWriteThrough = modes.length === 1 && modes[0] === 'raw';
+
+if (modes.length === 1 && modes[0] === 'raw') {
   var ignoredInRaw = [];
   if (opts.outputGamma !== undefined)               ignoredInRaw.push('--output-gamma');
   if (opts.clip !== undefined)                      ignoredInRaw.push('--clip');
@@ -438,7 +463,7 @@ if (opts.saveConfig) {
   };
 
   if (opts.dirOut !== OUTPUT_DIR)     config.dirOut = opts.dirOut;
-  if (opts.mode !== 'negative')       config.mode = opts.mode;
+  if (!(modes.length === 1 && modes[0] === 'negative')) config.mode = modes;
   if (opts.perImageBalancing)          config.perImageBalancing = true;
   if (opts.frameRejection === false)   config.noFrameRejection = true;
   if (opts.clip !== undefined)         config.clip = opts.clip;
@@ -470,12 +495,14 @@ if (opts.saveConfig) {
   process.exit(0);
 }
 
-var noInvert = opts.mode === 'raw' || opts.mode === 'e6' || opts.mode === 'bw' || opts.mode === 'bw-rgb';
+// True when no requested mode needs ATLAS inversion (drives the convert label
+// and whether the run log records the inversion engine).
+var noInvert = !hasNegative;
 
 // Resolve input directory and output paths
 var inputDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
 var dirBaseName = path.basename(inputDir);
-var outputDir, tiffDir;
+var outputDir;
 
 // Replace INPUT_DIR template in --dir-out value
 var dirOutValue = opts.dirOut.replace(/INPUT_DIR/g, dirBaseName);
@@ -505,12 +532,7 @@ if (!usingAbsoluteOutputDir && fs.existsSync(outputDir)) {
     outputDir = baseOutputDir + '_' + n;
     n++;
   }
-  console.log(`Previous output exists, using '${path.basename(outputDir)}' instead.`);
-}
-
-if (noInvert) {
-  // When skipping inversion, tiffs are the final output — put them in the output dir
-  tiffDir = outputDir;
+  console.log(`Output directory exists, using '${path.basename(outputDir)}' instead.`);
 }
 
 // Validate input directory exists (and is a directory) before creating any output dirs
@@ -533,6 +555,9 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
 
   var startTime = Date.now();
   var startupMs = startTime - processStart;
+  if (multiMode) {
+    console.log(`Multiple modes requested (${modes.join(', ')}) — each mode will go in its own subdirectory in the output directory.`);
+  }
   var rawFiles = scanDirectoryForFiles();
   var usableRawFiles = checkRawFiles(rawFiles);
   var scanTime = Date.now();
@@ -541,54 +566,137 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     process.stdout.write("\n");
     convertTime = Date.now();
 
-    if (noInvert) {
-      var verb;
-      if (opts.mode === 'e6') {
-        verb = "contrast-stretched";
-      } else if (opts.mode === 'bw') {
-        verb = "inverted and contrast-stretched greyscale";
-      } else if (opts.mode === 'bw-rgb') {
-        verb = "inverted and contrast-stretched RGB";
-      } else {
-        verb = "raw";
-      }
+    // --save-profile is a negative-inversion concept; honor it only when the
+    // negative mode is in play (matches pre-multi-mode behavior), then exit.
+    if (opts.saveProfile && hasNegative) {
+      saveProfileFromBuffers(buffers);
+      return;
+    }
 
-      if (opts.mode !== 'raw') {
-        // Apply configurable contrast stretch and write TIFFs
-        var atlasOpts = buildAtlasOpts();
-        var software = `PPRC v${pkg.version}`;
-        buffers.forEach(function(buf) {
-          var stretched = opts.stretch === false
-            ? buf.pixels
-            : contrastStretch(buf.pixels, buf.width, buf.height, atlasOpts.clipBlackPct, atlasOpts.clipWhitePct, atlasOpts.borderExcludePct, atlasOpts.toneGamma, atlasOpts.srgbEncodeOutput);
-
-          var finalPixels = stretched;
-          var finalChannels = 3;
-          if (opts.mode === 'bw') {
-            var pixelCount = buf.width * buf.height;
-            var gray = new Uint16Array(pixelCount);
-            for (var gi = 0; gi < pixelCount; gi++) {
-              gray[gi] = Math.round((stretched[gi * 3] + stretched[gi * 3 + 1] + stretched[gi * 3 + 2]) / 3);
-            }
-            finalPixels = gray;
-            finalChannels = 1;
-          }
-
-          writeTiff16(path.join(tiffDir, buf.name + '.tif'), finalPixels, buf.width, buf.height, finalChannels, software);
-        });
-      }
-
+    // raw-only: the workers already wrote the TIFFs (write-through), so `buffers`
+    // is an array of output paths — no main-thread transform to run.
+    if (rawWriteThrough) {
       console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
-      console.log(`${buffers.length} ${buffers.length === 1 ? "file" : "files"} saved to '${tiffDir}' as ${verb} TIFF.`);
+      console.log(`${buffers.length} ${buffers.length === 1 ? "file" : "files"} saved to '${outputDir}' as raw TIFF.`);
       if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms\x1b[0m`);
       saveLastRunConfig();
-      writeRunLog(buffers, null, null, Date.now() - startTime);
-    } else if (opts.saveProfile) {
-      saveProfileFromBuffers(buffers);
-    } else {
-      invertBuffers(buffers);
+      var rawImages = Object.keys(usableRawFiles).map(function(n) { return { name: path.basename(n, '.raw') }; });
+      writeRunLog(rawImages, null, null, Date.now() - startTime);
+      return;
     }
+
+    // Run each requested mode in turn, writing to its own subdirectory when
+    // more than one mode runs. Negative goes last because its ATLAS pass may
+    // consume the shared buffers, so the cheaper per-image modes read first.
+    var orderedModes = modes.filter(function(m) { return m !== 'negative'; });
+    if (hasNegative) orderedModes.push('negative');
+
+    var savedLines = [];
+    var loggingAtlasOpts = null;
+    var negResult = null;
+    var negImages = null;
+
+    var chain = Promise.resolve();
+    orderedModes.forEach(function(mode) {
+      chain = chain.then(function() {
+        var outDir = outDirForMode(mode);
+        if (mode === 'negative') {
+          return invertBuffers(buffers, outDir).then(function(r) {
+            loggingAtlasOpts = r.atlasOpts;
+            negResult = r.result;
+            negImages = r.images;
+            savedLines.push(`${r.fileCount} ${r.fileCount === 1 ? "file" : "files"} saved to '${outDir}' as processed TIFF.`);
+          });
+        }
+        writeStretchMode(buffers, mode, outDir);
+        savedLines.push(`${buffers.length} ${buffers.length === 1 ? "file" : "files"} saved to '${outDir}' as ${verbForMode(mode)} TIFF.`);
+        return Promise.resolve();
+      });
+    });
+
+    chain.then(function() {
+      console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
+      savedLines.forEach(function(l) { console.log(l); });
+      if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms\x1b[0m`);
+      saveLastRunConfig(loggingAtlasOpts);
+      writeRunLog(negImages || buffers, negResult, loggingAtlasOpts, Date.now() - startTime);
+    });
   });
+
+  // Resolve the output directory for a mode: a per-mode subdirectory when more
+  // than one mode runs, otherwise the output dir itself (flat — unchanged for
+  // single-mode runs).
+  function outDirForMode(mode) {
+    var d = multiMode ? path.join(outputDir, mode) : outputDir;
+    if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+    return d;
+  }
+
+  // Human-readable description of a non-negative mode's output, for the summary.
+  function verbForMode(mode) {
+    if (mode === 'e6') return 'contrast-stretched';
+    if (mode === 'bw') return 'inverted and contrast-stretched greyscale';
+    if (mode === 'bw-rgb') return 'inverted and contrast-stretched RGB';
+    return 'raw';
+  }
+
+  // Write the per-image (non-negative) modes from the shared linear buffer.
+  // raw  → linear sensor data unchanged; e6 → contrast stretch; bw/bw-rgb →
+  // invert then contrast stretch (bw also collapses to a single grey channel).
+  // Renders a progress bar — these run synchronously on the main thread and can
+  // take several seconds across a full roll.
+  function writeStretchMode(buffers, mode, outDir) {
+    var software = `PPRC v${pkg.version}`;
+    var labels = {
+      raw: 'Writing raw TIFFs',
+      e6: 'Contrast stretching',
+      bw: 'Inverting and contrast stretching (greyscale)',
+      'bw-rgb': 'Inverting and contrast stretching',
+    };
+    console.log(`\n${labels[mode]} (mode:${mode})`);
+
+    var total = buffers.length;
+    function renderBar(done) {
+      var bar = Array.from({length: total}, function(_, i) { return i < done ? '▰' : '▱'; }).join(' ');
+      process.stdout.write('\r' + bar);
+    }
+    renderBar(0);
+
+    var atlasOpts = mode === 'raw' ? null : buildAtlasOpts();
+    buffers.forEach(function(buf, idx) {
+      if (mode === 'raw') {
+        writeTiff16(path.join(outDir, buf.name + '.tif'), buf.pixels, buf.width, buf.height, 3, software);
+        renderBar(idx + 1);
+        return;
+      }
+
+      var src = buf.pixels;
+      if (mode === 'bw' || mode === 'bw-rgb') {
+        src = new Uint16Array(buf.pixels.length);
+        for (var k = 0; k < src.length; k++) src[k] = 65535 - buf.pixels[k];
+      }
+
+      var stretched = opts.stretch === false
+        ? src
+        : contrastStretch(src, buf.width, buf.height, atlasOpts.clipBlackPct, atlasOpts.clipWhitePct, atlasOpts.borderExcludePct, atlasOpts.toneGamma, atlasOpts.srgbEncodeOutput);
+
+      var finalPixels = stretched;
+      var finalChannels = 3;
+      if (mode === 'bw') {
+        var pixelCount = buf.width * buf.height;
+        var gray = new Uint16Array(pixelCount);
+        for (var gi = 0; gi < pixelCount; gi++) {
+          gray[gi] = Math.round((stretched[gi * 3] + stretched[gi * 3 + 1] + stretched[gi * 3 + 2]) / 3);
+        }
+        finalPixels = gray;
+        finalChannels = 1;
+      }
+
+      writeTiff16(path.join(outDir, buf.name + '.tif'), finalPixels, buf.width, buf.height, finalChannels, software);
+      renderBar(idx + 1);
+    });
+    process.stdout.write('\n');
+  }
 
   function saveProfileFromBuffers(buffers) {
     var images = buffers.map(function(buf) {
@@ -619,7 +727,11 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     });
   }
 
-  function invertBuffers(buffers) {
+  // Runs the ATLAS negative-inversion pass, writing TIFFs to outDir. Prints its
+  // own analysis progress and warnings, but leaves the final completion summary,
+  // last-run config, and run log to the orchestrator (so a multi-mode run reports
+  // once). Resolves with everything the orchestrator needs to log.
+  function invertBuffers(buffers, outDir) {
     var images = buffers.map(function(buf) {
       return { pixels: buf.pixels, width: buf.width, height: buf.height, name: buf.name + '.tiff' };
     });
@@ -629,10 +741,10 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     var invertLabelPrinted = false;
 
     var atlasOpts = buildAtlasOpts();
-    atlasOpts.outputDir = path.resolve(outputDir);
+    atlasOpts.outputDir = path.resolve(outDir);
     atlasOpts.software = `PPRC v${pkg.version}`;
 
-    processBuffers(images, atlasOpts, function(event) {
+    return processBuffers(images, atlasOpts, function(event) {
       if (event.type === 'analyze') {
         if (!analyzeLabelPrinted) {
           analyzeLabelPrinted = true;
@@ -660,8 +772,6 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     }).then(function(result) {
       process.stdout.write("\n");
 
-      var atlasTime = Date.now();
-
       if (result.frameRejection && result.frameRejection.rejected.length > 0) {
         var rej = result.frameRejection;
         var rejLines = [`\x1b[33mℹ️  ${rej.rejected.length} of ${totalFiles} frames were excluded from shared color profile due to differing color characteristics:`];
@@ -678,11 +788,6 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
         console.log(`\n\x1b[33m⚠️  ${msg}\x1b[0m`);
       }
 
-      console.log(`\n✨ Completed in ${((atlasTime - startTime) / 1000).toFixed(1)}s!`);
-      console.log(`${result.frames.length} ${result.frames.length === 1 ? "file" : "files"} saved to '${outputDir}' as processed TIFF.`);
-      if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms, atlas ${atlasTime - convertTime}ms\x1b[0m`);
-      saveLastRunConfig(atlasOpts);
-      writeRunLog(images, result, atlasOpts, atlasTime - startTime);
       if (result.sharedProfile) {
         try {
           var acceptedNames = result.frameRejection
@@ -712,6 +817,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
         }
       }
 
+      return { atlasOpts: atlasOpts, result: result, images: images, fileCount: result.frames.length };
     });
   }
 
@@ -761,7 +867,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
         `date: ${new Date().toISOString()}`,
         ``,
         `settings:`,
-        `  mode: ${opts.mode || 'negative'}`,
+        `  mode: ${modes.join(', ')}`,
         ...(atlasOpts ? [
           `  tone-gamma: ${atlasOpts.toneGamma}`,
           `  contrast stretch: ${atlasOpts.contrastStretch}`,
@@ -859,7 +965,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
         });
       } else {
         images.forEach(function(img) {
-          var inputName = (img.name || img).replace(/\.tiff$/, '.raw');
+          var inputName = (img.name || img).replace(/\.tiff$/, '') + '.raw';
           lines.push(`  ${inputName}`);
         });
       }
@@ -889,7 +995,7 @@ function saveLastRunConfig(resolvedOpts) {
     };
 
     if (resolvedOpts) {
-      lastRun.outputGamma = resolvedOpts.gamma;
+      lastRun.outputGamma = resolvedOpts.toneGamma;
       lastRun.noStretch = !resolvedOpts.contrastStretch;
       lastRun.clipBlack = resolvedOpts.clipBlackPct;
       lastRun.clipWhite = resolvedOpts.clipWhitePct;
@@ -900,7 +1006,7 @@ function saveLastRunConfig(resolvedOpts) {
       if (opts.profile) lastRun.profile = opts.profile;
     } else {
       if (opts.dirOut !== OUTPUT_DIR)     lastRun.dirOut = opts.dirOut;
-      if (opts.mode !== 'negative')       lastRun.mode = opts.mode;
+      if (!(modes.length === 1 && modes[0] === 'negative')) lastRun.mode = modes;
     }
 
     fs.writeFileSync(path.join(pprcConfigDir, 'last_run_config.json'), JSON.stringify(lastRun, null, 2) + '\n');
@@ -1091,11 +1197,14 @@ function convertRawFilesToTiff (data) {
 
 function convertRawToTiff (name, fileInfo) {
   var baseName = path.basename(name, ".raw");
-  var isRaw = opts.mode === 'raw';
-  var destinationFile = isRaw ? path.join(tiffDir, `${baseName}.tif`) : null;
-  var returnBuffer = !isRaw;
-
-  var mode = opts.mode === 'negative' ? 'default' : opts.mode;
+  // For a raw-only run, let the worker write the TIFF directly and return just
+  // its path — this avoids retaining every decoded RGB16 buffer in the main
+  // thread. For all other runs (including multi-mode that involves raw), the
+  // worker returns a neutral linear buffer (deplanarize + <<2 only) so one
+  // decode can feed each mode's main-thread transform.
+  var destinationFile = rawWriteThrough ? path.join(outputDir, baseName + '.tif') : null;
+  var returnBuffer = !rawWriteThrough;
+  var mode = 'default';
 
   return new Promise(function(resolve, reject) {
     var worker = new Worker(path.join(__dirname, 'lib', 'convert-worker.js'), {
