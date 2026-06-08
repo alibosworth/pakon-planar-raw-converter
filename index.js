@@ -560,7 +560,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
         buffers.forEach(function(buf) {
           var stretched = opts.stretch === false
             ? buf.pixels
-            : contrastStretch(buf.pixels, buf.width, buf.height, atlasOpts.clipBlackPct, atlasOpts.clipWhitePct, atlasOpts.borderExcludePct);
+            : contrastStretch(buf.pixels, buf.width, buf.height, atlasOpts.clipBlackPct, atlasOpts.clipWhitePct, atlasOpts.borderExcludePct, atlasOpts.toneGamma, atlasOpts.srgbEncodeOutput);
 
           var finalPixels = stretched;
           var finalChannels = 3;
