@@ -170,12 +170,16 @@ For best results, run PPRC on a full roll together when possible instead of proc
 
 #### Processing Mode
 
-* `--mode <mode>` Processing mode (default: `negative`). Choices:
+* `--mode <modes>` Processing mode(s) (default: `negative`). Choices:
   * `negative` — Invert color negative, remove orange mask (default)
   * `raw` — Output unconverted TIFFs for processing with another tool (Negative Lab Pro, ColorPerfect, Vuescan, etc.)
   * `e6` — Slide film — no inversion, apply auto-level
   * `bw` — Black & white — invert, auto-level, greyscale output
   * `bw-rgb` — Black & white — invert, auto-level, RGB output
+
+  You can request several modes at once with a comma-separated list, e.g. `pprc --mode negative,raw`. When more than one mode runs, each mode's output goes into its own subdirectory of the output folder (e.g. `out/negative/`, `out/raw/`); a single mode writes directly into the output folder as before.
+
+  Tuning options only affect the modes they apply to — for example `--clip` and `--output-gamma` affect `negative`, `e6`, and `bw` but are ignored by `raw` (which always writes the linear sensor data untouched).
 
 #### Tuning
 
