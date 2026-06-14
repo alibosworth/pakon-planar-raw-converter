@@ -915,12 +915,23 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       }
 
       if (rej) {
+        // The engine reports why rejection didn't run via `disabledReason`
+        // (null when it ran). Without it, a disabled pass is indistinguishable
+        // from a clean roll — both have rejected=[] — so we rely on the explicit
+        // field rather than sniffing the [-Inf, Inf] range sentinels.
         if (rej.rejected.length > 0) {
           lines.push(`frame rejection: rejected ${rej.rejected.length} of ${images.length} frames`);
           rej.rejected.forEach(function(frameIdx, rejIdx) {
             lines.push(`  ${images[frameIdx].name.replace(/\.tiff$/, '.raw')}:`);
             (rej.rejectionReasons[rejIdx] || []).forEach(function(r) { lines.push(`    - ${r}`); });
           });
+        } else if (rej.disabledReason === 'too_many_flagged') {
+          lines.push(`frame rejection: DISABLED by engine safety valve — outlier fences flagged >50% of frames`);
+          lines.push(`  the IQR fences would have rejected more than half the roll, so the engine accepted`);
+          lines.push(`  all ${images.length} frames rather than over-reject. acceptable ranges below are unset ([-Inf, Inf]).`);
+          lines.push(`  (the exact flagged count is not surfaced by the engine; inspect the diagnostics below.)`);
+        } else if (rej.disabledReason === 'too_few_frames') {
+          lines.push(`frame rejection: skipped — too few frames (<6) to compute outlier fences`);
         } else {
           lines.push(`frame rejection: enabled (no outliers detected)`);
         }
