@@ -201,6 +201,16 @@ For best results, run PPRC on a full roll together when possible instead of proc
 
 * `--pixel-rejection-percentage <percent>` Ignore brightest/darkest N% of pixels when profiling (default: 0.1).
 
+#### Color space
+
+Advanced color management. PPRC sets the RGB primaries (gamut) at three stages of the pipeline, and all three default to Adobe RGB. Valid values for each: `srgb`, `adobergb`, `rec2020`, `prophoto`, `acescg`. These apply to `negative`, `e6`, and `bw` modes and are ignored by `raw` (which writes untouched linear sensor data). Most users never need to change them.
+
+* `--colorspace-input <space>` RGB primaries PPRC assumes the incoming scan data is in (default: `adobergb`).
+
+* `--colorspace-working <space>` RGB primaries used internally while inverting and balancing (default: `adobergb`).
+
+* `--colorspace-output <space>` RGB primaries the output TIFFs are written in (default: `adobergb`).
+
 #### Profiles
 
 * `--save-profile <name>` Analyze input files, save inversion profile to `~/.pprc/`, then exit.
@@ -252,6 +262,37 @@ cp ~/.pprc/last_run_config.json ~/.pprc/configs/default.json
 ```
 
 When settings are loaded from config, pprc displays them at startup so you always know what's being applied.
+
+----------
+
+## Profiles
+
+A profile saves the *color analysis* PPRC computes from a batch: the shared inversion baseline (orange-mask removal and color balance). This is different from a [config](#global-config), which saves *settings* like clipping, gamma, and output directory. A config controls how PPRC processes; a profile captures the color analysis itself. A config can also reference a profile (via the `profile` setting), so a saved profile is applied automatically on every run.
+
+Profiles apply to C-41 negative inversion and are ignored in `raw` mode.
+
+Analyze a representative roll and save its profile with `--save-profile <name>`. This analyzes the scans, writes the profile, and exits without processing images:
+
+```
+pprc --dir /path/to/portra-roll --save-profile portra400
+```
+
+Profiles are stored in `~/.pprc/profiles/<name>.json` (`%USERPROFILE%\.pprc\profiles\<name>.json` on Windows).
+
+Apply a saved profile to any batch with `--profile <name>`. PPRC skips its own analysis and uses the saved baseline instead:
+
+```
+pprc --dir /path/to/another-roll --profile portra400
+```
+
+This gives consistent color across multiple rolls of the same film stock, and can rescue a batch that is hard to analyze on its own (a handful of frames, or a roll where most shots are backlit or unusual). You can also set `profile` in a config file to always apply it.
+
+After each negative run, PPRC saves the profile it used to `~/.pprc/profiles/last_run.json`. If you liked a result and want to reuse its exact analysis, copy it to a named profile:
+
+```
+cp ~/.pprc/profiles/last_run.json ~/.pprc/profiles/my-favorite.json
+pprc --dir /path/to/next-roll --profile my-favorite
+```
 
 ----------
 
