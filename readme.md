@@ -173,9 +173,9 @@ For best results, run PPRC on a full roll together when possible instead of proc
 * `--mode <modes>` Processing mode(s) (default: `negative`). Choices:
   * `negative` — Invert color negative, remove orange mask (default)
   * `raw` — Output unconverted TIFFs for processing with another tool (Negative Lab Pro, ColorPerfect, Vuescan, etc.)
-  * `e6` — Slide film — no inversion, apply auto-level
-  * `bw` — Black & white — invert, auto-level, greyscale output
-  * `bw-rgb` — Black & white — invert, auto-level, RGB output
+  * `e6` — Slide film — no inversion, apply contrast stretch
+  * `bw` — Black & white — invert, contrast stretch, greyscale output
+  * `bw-rgb` — Black & white — invert, contrast stretch, RGB output
 
   You can request several modes at once with a comma-separated list, e.g. `pprc --mode negative,raw`. When more than one mode runs, each mode's output goes into its own subdirectory of the output folder (e.g. `out/negative/`, `out/raw/`); a single mode writes directly into the output folder as before.
 
@@ -211,17 +211,15 @@ Advanced color management. PPRC sets the RGB primaries (gamut) at three stages o
 
 * `--colorspace-output <space>` RGB primaries the output TIFFs are written in (default: `adobergb`).
 
-#### Profiles
-
-* `--save-profile <name>` Analyze input files, save inversion profile to `~/.pprc/`, then exit.
-
-* `--profile <name>` Use a previously saved inversion profile from `~/.pprc/`.
-
 #### Utility
 
 * `--save-config [name]` Save current options to `~/.pprc/configs/default.json` (or `<name>.json`) and exit. For example: `pprc --clip 2.5 --save-config`.
 
 * `--use-config <name>` Load a named config from `~/.pprc/configs/<name>.json` instead of the default. For example: `pprc --use-config bw`.
+
+* `--save-profile <name>` Analyze input files, save the inversion profile, then exit. See [Profiles](#profiles).
+
+* `--profile <name>` Use a previously saved inversion profile. See [Profiles](#profiles).
 
 * `--install-quick-action` / `--uninstall-quick-action` Install or remove the macOS Finder Quick Action.
 
