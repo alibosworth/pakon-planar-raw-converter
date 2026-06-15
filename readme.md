@@ -179,7 +179,7 @@ For best results, run PPRC on a full roll together when possible instead of proc
 
   You can request several modes at once with a comma-separated list, e.g. `pprc --mode negative,raw`. When more than one mode runs, each mode's output goes into its own subdirectory of the output folder (e.g. `out/negative/`, `out/raw/`); a single mode writes directly into the output folder as before.
 
-  Tuning options only affect the modes they apply to — for example `--clip` and `--output-gamma` affect `negative`, `e6`, and `bw` but are ignored by `raw` (which always writes the linear sensor data untouched).
+  Tuning options only affect the modes they apply to — for example `--clip` and `--output-gamma` affect `negative`, `e6`, and `bw` but are ignored by `raw` (which always writes the linear sensor data unmanipulated).
 
 #### Tuning
 
@@ -203,7 +203,7 @@ For best results, run PPRC on a full roll together when possible instead of proc
 
 #### Color space
 
-Advanced color management. PPRC sets the RGB primaries (gamut) at three stages of the pipeline, and all three default to Adobe RGB. Valid values for each: `srgb`, `adobergb`, `rec2020`, `prophoto`, `acescg`. These apply to `negative`, `e6`, and `bw` modes and are ignored by `raw` (which writes untouched linear sensor data). Most users never need to change them.
+Advanced color management. PPRC sets the RGB primaries (gamut) at three stages of the pipeline, and all three default to Adobe RGB. Valid values for each: `srgb`, `adobergb`, `rec2020`, `prophoto`, `acescg`. These apply to `negative`, `e6`, and `bw` modes and are ignored by `raw` (which writes unmanipulated linear sensor data). Most users never need to change them.
 
 * `--colorspace-input <space>` RGB primaries PPRC assumes the incoming scan data is in (default: `adobergb`).
 
