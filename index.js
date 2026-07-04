@@ -99,6 +99,8 @@ program
   }).default([], 'negative'))
   .option('--per-image-balancing', 'Compute a separate inversion profile for each image instead of sharing')
   .option('--no-frame-rejection', 'Disable outlier frame rejection when computing shared inversion profile')
+  .addOption(new Option('--exclude-files-from-profile <list>', 'Comma-separated input file names to hold out of the shared profile (bypasses automatic frame rejection)').hideHelp())
+  .addOption(new Option('--black-point-mode <mode>', 'EXPERIMENT: black-point pedestal derivation (A/B for the inherited 0.95 constant)').choices(['current', 'floor', 'zero']).hideHelp())
   .option('--clip-black <percent>', 'Clip darkest N% to black during contrast stretch (default: 0.001)', parseFloat)
   .option('--clip-white <percent>', 'Clip brightest N% to white during contrast stretch (default: 0.001)', parseFloat)
   .option('--clip <percent>', 'Clip both black and white ends by N% during contrast stretch', parseFloat)
@@ -433,8 +435,26 @@ function validateProfileName(name, flag) {
   }
 }
 
+// Parse the (undocumented) --exclude-files-from-profile list into file-name
+// stems (directory and extension stripped) for extension-insensitive matching
+// against the input .raw set. atlas matches the same way on its side.
+function parseExcludeFromProfile(str) {
+  if (!str) return [];
+  return str.split(',')
+    .map(function(s) { return s.trim(); })
+    .filter(Boolean)
+    .map(function(s) { return path.parse(s.replace(/\\/g, '/')).name; });
+}
+
 if (opts.saveProfile) validateProfileName(opts.saveProfile, '--save-profile');
 if (opts.profile)     validateProfileName(opts.profile,     '--profile');
+
+// --exclude-files-from-profile only makes sense for a shared profile. In
+// per-image mode each frame gets its own profile, so there is nothing to
+// exclude from.
+if (opts.excludeFilesFromProfile && opts.perImageBalancing) {
+  exitWithError('--exclude-files-from-profile cannot be combined with --per-image-balancing (per-image mode computes a separate profile per frame, so there is no shared profile to exclude from).');
+}
 
 var loadedProfile = null;
 if (opts.profile) {
@@ -560,6 +580,19 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
   }
   var rawFiles = scanDirectoryForFiles();
   var usableRawFiles = checkRawFiles(rawFiles);
+
+  // Validate --exclude-files-from-profile against the actual input set up front
+  // (before the expensive conversion). Any name that matches no input file is a
+  // typo — hard-error rather than silently exclude nothing.
+  var excludeFromProfileStems = parseExcludeFromProfile(opts.excludeFilesFromProfile);
+  if (excludeFromProfileStems.length > 0) {
+    var inputStems = new Set(Object.keys(usableRawFiles).map(function(n) { return path.parse(n).name; }));
+    var unmatched = excludeFromProfileStems.filter(function(s) { return !inputStems.has(s); });
+    if (unmatched.length > 0) {
+      exitWithError(`--exclude-files-from-profile: no input file matches ${unmatched.map(function(s) { return `'${s}'`; }).join(', ')}.\n  Listed names are matched against input .raw files by name (extension optional). Check for typos.`);
+    }
+  }
+
   var scanTime = Date.now();
   var convertTime;
   convertRawFilesToTiff(usableRawFiles).then(function(buffers){
@@ -774,9 +807,13 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
 
       if (result.frameRejection && result.frameRejection.rejected.length > 0) {
         var rej = result.frameRejection;
-        var rejLines = [`\x1b[33mℹ️  ${rej.rejected.length} of ${totalFiles} frames were excluded from shared color profile due to differing color characteristics:`];
+        var manualExclusion = rej.disabledReason === 'manual_exclusion';
+        var rejLines = manualExclusion
+          ? [`\x1b[33mℹ️  ${rej.rejected.length} of ${totalFiles} frames held out of the shared color profile (--exclude-files-from-profile):`]
+          : [`\x1b[33mℹ️  ${rej.rejected.length} of ${totalFiles} frames were excluded from shared color profile due to differing color characteristics:`];
         rej.rejected.forEach(function(i) { rejLines.push(`  ${images[i].name.replace(/\.tiff$/, '.raw')}`); });
-        rejLines.push(`Use --no-frame-rejection to include all frames.\x1b[0m`);
+        if (!manualExclusion) rejLines.push(`Use --no-frame-rejection to include all frames.`);
+        rejLines[rejLines.length - 1] += '\x1b[0m';
         console.log(rejLines.join('\n'));
       }
 
@@ -842,6 +879,12 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     if (opts.colorspaceOutput  !== undefined) atlasOpts.outputSpace  = opts.colorspaceOutput;
     if (opts.perImageBalancing) atlasOpts.perImage = true;
     if (opts.frameRejection === false) atlasOpts.frameRejection = false;
+    // Manual frame exclusion (undocumented). When set, atlas bypasses its
+    // automatic outlier pass and holds out exactly these frames.
+    if (excludeFromProfileStems.length > 0) atlasOpts.excludeFromProfile = excludeFromProfileStems;
+    // Black-point pedestal A/B (undocumented experiment). Default 'current' is
+    // the shipping behavior; only forward a non-default choice.
+    if (opts.blackPointMode && opts.blackPointMode !== 'current') atlasOpts.blackPointMode = opts.blackPointMode;
     if (opts.clip !== undefined) {
       atlasOpts.clipBlackPct = parseFloat(opts.clip);
       atlasOpts.clipWhitePct = parseFloat(opts.clip);
@@ -876,7 +919,8 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
           `  pixel-rejection-percentage: ${atlasOpts.outlierRejectionPct}%`,
           `  border-exclude: ${atlasOpts.borderExcludePct}%`,
           `  profile: ${atlasOpts.perImage ? 'per-image' : 'shared (all images)'}`,
-          `  frame-rejection: ${atlasOpts.frameRejection}`,
+          `  frame-rejection: ${atlasOpts.excludeFromProfile ? `manual (${atlasOpts.excludeFromProfile.join(', ')})` : atlasOpts.frameRejection}`,
+          ...(atlasOpts.blackPointMode ? [`  black-point-mode: ${atlasOpts.blackPointMode} (EXPERIMENT)`] : []),
           `  colorspace-input: ${atlasOpts.inputSpace}`,
           `  colorspace-working: ${atlasOpts.workingSpace}`,
           `  colorspace-output: ${atlasOpts.outputSpace}`,
@@ -919,7 +963,13 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
         // (null when it ran). Without it, a disabled pass is indistinguishable
         // from a clean roll — both have rejected=[] — so we rely on the explicit
         // field rather than sniffing the [-Inf, Inf] range sentinels.
-        if (rej.rejected.length > 0) {
+        if (rej.disabledReason === 'manual_exclusion') {
+          lines.push(`frame rejection: MANUAL — ${rej.rejected.length} of ${images.length} frames held out via --exclude-files-from-profile`);
+          lines.push(`  automatic outlier rejection was bypassed; only the listed frames were excluded.`);
+          rej.rejected.forEach(function(frameIdx) {
+            lines.push(`  ${images[frameIdx].name.replace(/\.tiff$/, '.raw')}`);
+          });
+        } else if (rej.rejected.length > 0) {
           lines.push(`frame rejection: rejected ${rej.rejected.length} of ${images.length} frames`);
           rej.rejected.forEach(function(frameIdx, rejIdx) {
             lines.push(`  ${images[frameIdx].name.replace(/\.tiff$/, '.raw')}:`);
