@@ -91,9 +91,9 @@ var GROUP_HEADERS = {
 var program = new Command();
 program
   .name('pprc')
-  .option('--dir [dir]', 'Directory containing .raw files to process (default: current directory)')
-  .option('--dir-out [dir]', `Output directory (use INPUT_DIR for input folder name, start with '../' to place beside input)`, OUTPUT_DIR)
-  .addOption(new Option('--output-dir [dir]', `Specify the output directory name`).hideHelp())
+  .option('--dir <dir>', 'Directory containing .raw files to process (default: current directory)')
+  .option('--dir-out <dir>', `Output directory (use INPUT_DIR for input folder name, start with '../' to place beside input)`, OUTPUT_DIR)
+  .addOption(new Option('--output-dir <dir>', `Specify the output directory name`).hideHelp())
   .addOption(new Option('--mode <modes>', 'Processing mode(s) — comma-separated, e.g. --mode raw,e6').argParser(function(val, acc) {
     return (Array.isArray(acc) ? acc : []).concat(val.split(',').map(function(s) { return s.trim(); }).filter(Boolean));
   }).default([], 'negative'))
@@ -120,7 +120,7 @@ program
   .option('--examples', 'Show usage examples')
   .addOption(new Option('--debug-srgb-encode-output', 'Debug: pass srgbEncodeOutput=true to atlas').hideHelp())
   .option('--no-negfix', '[deprecated: use --mode raw] Skip negative inversion')
-  .option('--dimensions [width]x[height]', '[deprecated] Manually specify pixel dimensions for headerless raw files (e.g. "4000x2000")')
+  .option('--dimensions <widthxheight>', '[deprecated] Manually specify pixel dimensions for headerless raw files (e.g. "4000x2000")')
   .option('--e6', '[deprecated: use --mode e6] Process slide film')
   .option('--bw', '[deprecated: use --mode bw] Black & white greyscale')
   .option('--bw-rgb', '[deprecated: use --mode bw-rgb] Black & white RGB')
@@ -563,16 +563,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
   exitWithError(`Not a directory: '${inputDir}'`);
 }
 
-// Create output dir or error if explicit path already exists
 (function() {
-  if (fs.existsSync(outputDir)){
-    if (usingAbsoluteOutputDir) {
-      exitWithError(`Output directory '${outputDir}' already exists. Please remove or rename it before running again.`);
-    }
-  } else {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
-
   var startTime = Date.now();
   var startupMs = startTime - processStart;
   if (multiMode) {
@@ -593,6 +584,20 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     }
   }
 
+  // Inputs are validated — only now create the output dir (or error if an
+  // explicit absolute path already exists), so failed runs don't leave empty
+  // auto-incremented directories behind.
+  // A --save-profile negative run analyses and exits without image output, so it
+  // needs no output directory — don't create (or auto-increment) one for it.
+  var profileOnlyRun = opts.saveProfile && hasNegative;
+  if (fs.existsSync(outputDir)){
+    if (usingAbsoluteOutputDir) {
+      exitWithError(`Output directory '${outputDir}' already exists. Please remove or rename it before running again.`);
+    }
+  } else if (!profileOnlyRun) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
   var scanTime = Date.now();
   var convertTime;
   convertRawFilesToTiff(usableRawFiles).then(function(buffers){
@@ -602,8 +607,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     // --save-profile is a negative-inversion concept; honor it only when the
     // negative mode is in play (matches pre-multi-mode behavior), then exit.
     if (opts.saveProfile && hasNegative) {
-      saveProfileFromBuffers(buffers);
-      return;
+      return saveProfileFromBuffers(buffers);
     }
 
     // raw-only: the workers already wrote the TIFFs (write-through), so `buffers`
@@ -647,13 +651,18 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       });
     });
 
-    chain.then(function() {
+    return chain.then(function() {
       console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
       savedLines.forEach(function(l) { console.log(l); });
       if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms\x1b[0m`);
       saveLastRunConfig(loggingAtlasOpts);
       writeRunLog(negImages || buffers, negResult, loggingAtlasOpts, Date.now() - startTime);
     });
+  }).catch(function(err) {
+    // Single failure funnel for the whole pipeline (worker errors other than
+    // the overflow sentinel, atlas rejections, TIFF write failures). Without
+    // it these surface as unhandled rejections with a raw stack trace.
+    exitWithError(err && err.message ? err.message : String(err));
   });
 
   // Resolve the output directory for a mode: a per-mode subdirectory when more
@@ -740,7 +749,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
 
     var atlasOpts = buildAtlasOpts();
 
-    processBuffers(images, atlasOpts, function(event) {
+    return processBuffers(images, atlasOpts, function(event) {
       if (event.type === 'analyze') {
         var bar = Array.from({length: event.total}, function(_, i) { return i < event.done ? '▰' : '▱'; });
         process.stdout.write('\r' + bar.join(' '));
