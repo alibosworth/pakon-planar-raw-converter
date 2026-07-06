@@ -101,6 +101,8 @@ program
   .option('--no-frame-rejection', 'Disable outlier frame rejection when computing shared inversion profile')
   .addOption(new Option('--exclude-files-from-profile <list>', 'Comma-separated input file names to hold out of the shared profile (bypasses automatic frame rejection)').hideHelp())
   .addOption(new Option('--black-point-mode <mode>', 'EXPERIMENT: black-point pedestal derivation (A/B for the inherited 0.95 constant)').choices(['current', 'floor', 'zero']).hideHelp())
+  .addOption(new Option('--min-anchor <mode>', 'Shared white-side (channel-mins) anchor — median (default) fixes the per-channel floor deficit; extreme = legacy absolute-min').choices(['median', 'extreme', 'second', 'p10']).hideHelp())
+  .addOption(new Option('--slope-source <mode>', 'EXPERIMENT: cross-channel slope-ratio estimator — composite endpoints vs median of per-frame implied gammas (orange-mask/gamma color numbers)').choices(['endpoints', 'median']).hideHelp())
   .option('--clip-black <percent>', 'Clip darkest N% to black during contrast stretch (default: 0.001)', parseFloat)
   .option('--clip-white <percent>', 'Clip brightest N% to white during contrast stretch (default: 0.001)', parseFloat)
   .option('--clip <percent>', 'Clip both black and white ends by N% during contrast stretch', parseFloat)
@@ -781,6 +783,17 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     var totalFiles = images.length;
     var analyzeLabelPrinted = false;
     var invertLabelPrinted = false;
+    // Whether the "Analysing images…" progress bar's line has been terminated
+    // with a newline. Emitted by whichever event fires first: the 'profile'
+    // event (shared-profile runs) or the first 'process' event (per-image runs,
+    // where atlas fires no 'profile' event — see pipeline.rs per-image branch).
+    var analyzeBarEnded = false;
+    function endAnalyzeBar() {
+      if (analyzeLabelPrinted && !analyzeBarEnded) {
+        process.stdout.write("\n");
+        analyzeBarEnded = true;
+      }
+    }
 
     var atlasOpts = buildAtlasOpts();
     atlasOpts.outputDir = path.resolve(outDir);
@@ -798,13 +811,16 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       }
 
       if (event.type === 'profile') {
-        process.stdout.write("\n");
+        endAnalyzeBar();
         return;
       }
 
       if (event.type === 'process') {
         if (!invertLabelPrinted) {
           invertLabelPrinted = true;
+          // Per-image runs skip the 'profile' event, so the analyse bar may not
+          // be newline-terminated yet — do it here before the header prints.
+          endAnalyzeBar();
           console.log(atlasOpts.perImage ? "Inverting images (per-image balancing)" : "Inverting images");
         }
         var bar = Array.from({length: event.total}, function(_, i) { return i < event.done ? '▰' : '▱'; });
@@ -894,6 +910,16 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     // Black-point pedestal A/B (undocumented experiment). Default 'current' is
     // the shipping behavior; only forward a non-default choice.
     if (opts.blackPointMode && opts.blackPointMode !== 'current') atlasOpts.blackPointMode = opts.blackPointMode;
+    // White-side anchor. atlas now defaults to 'median' (fixes the per-channel
+    // floor deficit); forward ANY explicit choice — incl. 'extreme', the legacy
+    // absolute-min — so it isn't dropped. Only affects the shared profile
+    // (per-image computes a single-frame profile, where all modes collapse).
+    if (opts.minAnchor) atlasOpts.minAnchor = opts.minAnchor;
+    // Slope-ratio estimator A/B (undocumented experiment). Default 'endpoints'
+    // is the shipping composite two-point estimate; 'median' derives the ratios
+    // from the median of per-frame implied gammas. Only affects the shared
+    // profile (per-image: a single-frame median is just that frame's gamma).
+    if (opts.slopeSource && opts.slopeSource !== 'endpoints') atlasOpts.slopeSource = opts.slopeSource;
     if (opts.clip !== undefined) {
       atlasOpts.clipBlackPct = parseFloat(opts.clip);
       atlasOpts.clipWhitePct = parseFloat(opts.clip);
@@ -930,6 +956,8 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
           `  profile: ${atlasOpts.perImage ? 'per-image' : 'shared (all images)'}`,
           `  frame-rejection: ${atlasOpts.excludeFromProfile ? `manual (${atlasOpts.excludeFromProfile.join(', ')})` : atlasOpts.frameRejection}`,
           ...(atlasOpts.blackPointMode ? [`  black-point-mode: ${atlasOpts.blackPointMode} (EXPERIMENT)`] : []),
+          `  min-anchor: ${atlasOpts.minAnchor || 'median (default)'}`,
+          ...(atlasOpts.slopeSource ? [`  slope-source: ${atlasOpts.slopeSource} (EXPERIMENT)`] : []),
           `  colorspace-input: ${atlasOpts.inputSpace}`,
           `  colorspace-working: ${atlasOpts.workingSpace}`,
           `  colorspace-output: ${atlasOpts.outputSpace}`,
@@ -1011,7 +1039,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
             var status = d.accepted ? 'accepted' : 'rejected';
             var closeness = d.closeness !== undefined ? `  closeness=${d.closeness.toFixed(4)}` : '';
             lines.push(`  ${name}: ${status}${closeness}`);
-            lines.push(`    gammaG=${d.impliedGammaG.toFixed(4)} gammaB=${d.impliedGammaB.toFixed(4)} densityR=${d.densityRangeR.toFixed(2)} minRatioRG=${d.minRatioRg.toFixed(4)} minRatioRB=${d.minRatioRb.toFixed(4)} maxR=${d.maxR.toFixed(4)}`);
+            lines.push(`    gammaG=${d.impliedGammaG.toFixed(4)} gammaB=${d.impliedGammaB.toFixed(4)} densityR=${d.densityRangeR.toFixed(2)} minRatioRG=${d.minRatioRg.toFixed(4)} minRatioRB=${d.minRatioRb.toFixed(4)} maxRatioRG=${d.maxRatioRg.toFixed(4)} maxRatioRB=${d.maxRatioRb.toFixed(4)} maxR=${d.maxR.toFixed(4)}`);
             if (d.reasons.length > 0) {
               d.reasons.forEach(function(r) { lines.push(`    - ${r}`); });
             }
