@@ -172,6 +172,14 @@ if (opts.outputDir) {
   opts.dirOut = opts.outputDir;
 }
 
+// Output files are written asynchronously (workers + atlas), so their on-disk
+// timestamps land in arbitrary order. Downstream tools (Lightroom, Capture One)
+// that carry no EXIF capture time fall back to the file date, so we always
+// restamp outputs in frame order after writing. 1s spacing is a synthetic
+// timeline decoupled from wall-clock, so a 3s run still yields cleanly spaced
+// mtimes. See applySequentialTimestamps().
+var SEQUENCE_STEP_SECONDS = 1;
+
 // Load pprc config (~/.pprc/configs/default.json or named config)
 var pprcConfigDir   = path.join(os.homedir(), '.pprc');
 var pprcProfilesDir = path.join(pprcConfigDir, 'profiles');
@@ -618,6 +626,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
       console.log(`${buffers.length} ${buffers.length === 1 ? "file" : "files"} saved to '${outputDir}' as raw TIFF.`);
       if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms\x1b[0m`);
+      applySequentialTimestamps(outputDir, Date.now());
       saveLastRunConfig();
       var rawImages = Object.keys(usableRawFiles).map(function(n) { return { name: path.basename(n, '.raw') }; });
       writeRunLog(rawImages, null, null, Date.now() - startTime);
@@ -634,11 +643,13 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     var loggingAtlasOpts = null;
     var negResult = null;
     var negImages = null;
+    var outputDirs = [];
 
     var chain = Promise.resolve();
     orderedModes.forEach(function(mode) {
       chain = chain.then(function() {
         var outDir = outDirForMode(mode);
+        if (outputDirs.indexOf(outDir) === -1) outputDirs.push(outDir);
         if (mode === 'negative') {
           return invertBuffers(buffers, outDir).then(function(r) {
             loggingAtlasOpts = r.atlasOpts;
@@ -657,6 +668,8 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       console.log(`\n✨ Completed in ${((Date.now() - startTime) / 1000).toFixed(1)}s!`);
       savedLines.forEach(function(l) { console.log(l); });
       if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms\x1b[0m`);
+      var stampRef = Date.now();
+      outputDirs.forEach(function(d) { applySequentialTimestamps(d, stampRef); });
       saveLastRunConfig(loggingAtlasOpts);
       writeRunLog(negImages || buffers, negResult, loggingAtlasOpts, Date.now() - startTime);
     });
@@ -1076,6 +1089,36 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     }
   }
 })();
+
+// Restamp the output TIFFs in a directory so their modification times increase
+// in frame order. atlas and the worker threads write files asynchronously, so
+// on-disk mtimes otherwise land in arbitrary order and downstream tools that
+// sort by file date scramble the roll. We assign a synthetic, evenly-spaced
+// timeline: the last frame gets `referenceMs` (run completion) and earlier
+// frames step backwards by SEQUENCE_STEP_SECONDS each, so every timestamp is
+// <= now (no future-dated files) and strictly increasing in name order. Sort is
+// lexical to match the run-log's file ordering; Pakon output is zero-padded so
+// lexical == numeric. Best-effort: a failure to stamp never fails the run.
+function applySequentialTimestamps(dir, referenceMs) {
+  var names;
+  try {
+    names = fs.readdirSync(dir).filter(function(f) { return /\.tiff?$/i.test(f); });
+  } catch (e) {
+    if (DEBUG) console.error('Sequential timestamps: could not read ' + dir + ':', e);
+    return;
+  }
+  names.sort(function(a, b) { return a < b ? -1 : a > b ? 1 : 0; });
+  var stepMs = SEQUENCE_STEP_SECONDS * 1000;
+  var lastIndex = names.length - 1;
+  names.forEach(function(name, i) {
+    var whenSec = (referenceMs - (lastIndex - i) * stepMs) / 1000;
+    try {
+      fs.utimesSync(path.join(dir, name), whenSec, whenSec);
+    } catch (e) {
+      if (DEBUG) console.error('Sequential timestamps: could not stamp ' + name + ':', e);
+    }
+  });
+}
 
 function saveLastRunConfig(resolvedOpts) {
   try {
