@@ -863,6 +863,25 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
         console.log(`\n\x1b[33m⚠️  ${msg}\x1b[0m`);
       }
 
+      if (result.dustReport && result.dustReport.status === 'active') {
+        var flaggedDust = result.dustReport.frames.filter(function(f) { return f.confirmed && f.confirm; });
+        if (flaggedDust.length > 0) {
+          var suggestedClip = flaggedDust.reduce(function(m, f) { return Math.max(m, f.confirm.suggestedClipWhitePct); }, 0);
+          var dustN = flaggedDust.length;
+          var dustFrameWord = dustN === 1 ? 'frame' : 'frames';
+          var dustBlobClause = dustN === 1 ? 'an opaque blob is' : 'opaque blobs are';
+          var dustLines = [`\x1b[33m🌫️  Probable dust detected on ${dustN} ${dustFrameWord} — ${dustBlobClause} anchoring the contrast-stretch white point, which can wash out highlights:`];
+          flaggedDust.forEach(function(f) {
+            var name = images[f.index].name.replace(/\.tiff$/, '.raw');
+            var pctOfFloor = (100 * f.confirm.clusterMin / f.confirm.floor).toFixed(0);
+            dustLines.push(`  ${name}: ${f.confirm.clusterSize}-pixel blob at ${pctOfFloor}% of the frame floor`);
+          });
+          dustLines.push(`Suggested fix: re-run with --clip-white ${suggestedClip.toFixed(2)} (raise it if highlights still clip).`);
+          dustLines[dustLines.length - 1] += '\x1b[0m';
+          console.log('\n' + dustLines.join('\n'));
+        }
+      }
+
       if (result.sharedProfile) {
         try {
           var acceptedNames = result.frameRejection
@@ -1059,6 +1078,29 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
           });
           lines.push(``);
         }
+      }
+
+      var dr = result && result.dustReport;
+      if (dr && dr.status === 'inactive_non_linear_trc') {
+        lines.push(`dust detector: inactive — non-linear input TRC (trigger thresholds are validated on linear input only)`, ``);
+      } else if (dr && dr.status === 'inactive_saved_profile') {
+        lines.push(`dust detector: inactive — a saved/inline profile skips the analyze pass`, ``);
+      } else if (dr && dr.status === 'active') {
+        var flaggedCount = dr.frames.filter(function(f) { return f.confirmed; }).length;
+        var clearedCount = dr.frames.filter(function(f) { return f.triggered && !f.confirmed; }).length;
+        var quietCount = dr.frames.length - flaggedCount - clearedCount;
+        lines.push(`dust detector: ${flaggedCount} flagged, ${clearedCount} triggered-then-cleared, ${quietCount} quiet`);
+        dr.frames.slice().sort(function(a, b) { return a.index - b.index; }).forEach(function(f) {
+          var name = images[f.index] ? images[f.index].name.replace(/\.tiff$/, '.raw') : `frame ${f.index}`;
+          var state = f.confirmed ? 'FLAGGED' : (f.triggered ? 'triggered-then-cleared' : 'quiet');
+          var line = `  ${name}: ${state}  detach=${f.detach.toFixed(3)} wp/p1=${f.wpP1.toFixed(3)}`;
+          if (f.confirmed && f.confirm) {
+            var c = f.confirm;
+            line += `  cluster=${c.clusterSize} px (span ${c.clusterSpan} px) min/floor=${(c.clusterMin / c.floor).toFixed(3)} suggested --clip-white=${c.suggestedClipWhitePct.toFixed(2)}`;
+          }
+          lines.push(line);
+        });
+        lines.push(``);
       }
 
       lines.push(`files:`);
