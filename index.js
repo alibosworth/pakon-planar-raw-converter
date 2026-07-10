@@ -628,7 +628,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       if (DEBUG) console.log(`\x1b[2m  Timing: startup ${startupMs}ms, scan ${scanTime - startTime}ms, convert ${convertTime - scanTime}ms\x1b[0m`);
       applySequentialTimestamps(outputDir, Date.now());
       saveLastRunConfig();
-      var rawImages = Object.keys(usableRawFiles).map(function(n) { return { name: path.basename(n, '.raw') }; });
+      var rawImages = Object.keys(usableRawFiles).map(function(n) { return { name: path.parse(n).name }; });
       writeRunLog(rawImages, null, null, Date.now() - startTime);
       return;
     }
@@ -1379,7 +1379,7 @@ function convertRawFilesToTiff (data) {
 }
 
 function convertRawToTiff (name, fileInfo) {
-  var baseName = path.basename(name, ".raw");
+  var baseName = path.parse(name).name;
   // For a raw-only run, let the worker write the TIFF directly and return just
   // its path — this avoids retaining every decoded RGB16 buffer in the main
   // thread. For all other runs (including multi-mode that involves raw), the
