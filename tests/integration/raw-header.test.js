@@ -30,6 +30,26 @@ for (const channels of [1, 2]) {
   });
 }
 
+// #12 — the TIFF writer stores width/height as 16-bit SHORT (max 65535), so a
+// header claiming a larger dimension must be rejected rather than reaching the
+// writer and throwing.
+test('a raw header with a dimension over 65535 is rejected', () => {
+  const dir = tmpDir();
+  try {
+    const inDir = path.join(dir, 'in');
+    const outDir = path.join(dir, 'out');
+    fs.mkdirSync(inDir);
+    makeRaw(path.join(inDir, 'huge.raw'), { width: 70000, height: 1 });
+
+    const { status, stderr } = runCli(['--dir', inDir, '--dir-out', outDir, '--mode', 'raw']);
+
+    assert.notEqual(status, 0, 'an over-large dimension should not process');
+    assert.doesNotMatch(stderr, /RangeError|out of range/, 'rejected at validation, not a writer crash');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // A normal three-channel raw still converts fine (guards against over-rejecting).
 test('a valid 3-channel raw still converts', () => {
   const dir = tmpDir();
