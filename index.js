@@ -1453,14 +1453,25 @@ function convertRawToTiff (name, fileInfo) {
         baseName: baseName
       }
     });
+    var settled = false;
     worker.on('message', function(result) {
+      settled = true;
       resolve(result);
     });
     worker.on('error', function(err) {
+      settled = true;
       if (err && err.message && err.message.indexOf('PPRC_RAW_OVERFLOW:') === 0) {
         exitWithError(err.message.slice('PPRC_RAW_OVERFLOW:'.length).trim());
       }
       reject(err);
+    });
+    // Guard against a worker that exits without posting a result or error
+    // (e.g. a future early-exit path), which would otherwise leave the queue
+    // pending forever.
+    worker.on('exit', function(code) {
+      if (!settled) {
+        reject(new Error(`Worker for '${name}' exited (code ${code}) without producing a result.`));
+      }
     });
   });
 }
