@@ -1438,7 +1438,6 @@ function convertRawToTiff (name, fileInfo) {
   // decode can feed each mode's main-thread transform.
   var destinationFile = rawWriteThrough ? path.join(outputDir, baseName + '.tif') : null;
   var returnBuffer = !rawWriteThrough;
-  var mode = 'default';
 
   return new Promise(function(resolve, reject) {
     var worker = new Worker(path.join(__dirname, 'lib', 'convert-worker.js'), {
@@ -1449,7 +1448,6 @@ function convertRawToTiff (name, fileInfo) {
         channels: fileInfo.channels,
         headerOffset: fileInfo.headerOffset,
         destinationFile: destinationFile ? path.resolve(destinationFile) : null,
-        mode: mode,
         software: `PPRC v${pkg.version}`,
         returnBuffer: returnBuffer,
         baseName: baseName
