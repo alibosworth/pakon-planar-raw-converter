@@ -439,6 +439,20 @@ if (modes.length === 1 && modes[0] === 'raw') {
   }
 }
 
+// Colour-space flags only affect the negative-inversion output; E6, BW, and raw
+// modes do no input/working/output conversion. The raw-only warning above covers
+// raw; warn here for a non-raw-only run that has no negative mode.
+if (!hasNegative && !rawWriteThrough) {
+  var ignoredColorspace = [];
+  if (opts.colorspaceInput !== undefined)   ignoredColorspace.push('--colorspace-input');
+  if (opts.colorspaceWorking !== undefined) ignoredColorspace.push('--colorspace-working');
+  if (opts.colorspaceOutput !== undefined)  ignoredColorspace.push('--colorspace-output');
+  if (ignoredColorspace.length > 0) {
+    var csVerb = ignoredColorspace.length === 1 ? 'is' : 'are';
+    console.warn(`\x1b[33mWarning: ${ignoredColorspace.join(', ')} ${csVerb} ignored for the selected mode(s); colour space only affects negative-inversion output.\x1b[0m`);
+  }
+}
+
 function validateProfileName(name, flag) {
   if (!name || /[/\\:*?"<>|\x00\s]/.test(name) || name === '.' || name === '..') {
     exitWithError(`Invalid profile name '${name}' for ${flag}. Use a simple name with no path separators or special characters (e.g. portra400).`);
