@@ -1224,6 +1224,10 @@ function saveLastRunConfig(resolvedOpts) {
       },
     };
 
+    // Run-level settings, recorded for every run so a copied config reproduces it.
+    if (opts.dirOut !== OUTPUT_DIR)     lastRun.dirOut = opts.dirOut;
+    if (!(modes.length === 1 && modes[0] === 'negative')) lastRun.mode = modes;
+
     if (resolvedOpts) {
       lastRun.outputGamma = resolvedOpts.toneGamma;
       lastRun.noStretch = !resolvedOpts.contrastStretch;
@@ -1233,10 +1237,10 @@ function saveLastRunConfig(resolvedOpts) {
       lastRun.borderExclude = resolvedOpts.borderExcludePct;
       lastRun.perImageBalancing = resolvedOpts.perImage;
       lastRun.noFrameRejection = !resolvedOpts.frameRejection;
+      lastRun.colorspaceInput = resolvedOpts.inputSpace;
+      lastRun.colorspaceWorking = resolvedOpts.workingSpace;
+      lastRun.colorspaceOutput = resolvedOpts.outputSpace;
       if (opts.profile) lastRun.profile = opts.profile;
-    } else {
-      if (opts.dirOut !== OUTPUT_DIR)     lastRun.dirOut = opts.dirOut;
-      if (!(modes.length === 1 && modes[0] === 'negative')) lastRun.mode = modes;
     }
 
     fs.writeFileSync(path.join(pprcConfigDir, 'last_run_config.json'), JSON.stringify(lastRun, null, 2) + '\n');
