@@ -870,13 +870,13 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
           var dustN = flaggedDust.length;
           var dustFrameWord = dustN === 1 ? 'frame' : 'frames';
           var dustBlobClause = dustN === 1 ? 'an opaque blob is' : 'opaque blobs are';
-          var dustLines = [`\x1b[33m🌫️  Probable dust detected on ${dustN} ${dustFrameWord} — ${dustBlobClause} anchoring the contrast-stretch white point, which can wash out highlights:`];
+          var dustLines = [`\x1b[33m🌫️  Probable dust detected on ${dustN} ${dustFrameWord} — ${dustBlobClause} anchoring the contrast-stretch white point, darkening the frame:`];
           flaggedDust.forEach(function(f) {
             var name = images[f.index].name.replace(/\.tiff$/, '.raw');
             var pctOfFloor = (100 * f.confirm.clusterMin / f.confirm.floor).toFixed(0);
             dustLines.push(`  ${name}: ${f.confirm.clusterSize}-pixel blob at ${pctOfFloor}% of the frame floor`);
           });
-          dustLines.push(`Suggested fix: re-run with --clip-white ${suggestedClip.toFixed(2)} (raise it if highlights still clip).`);
+          dustLines.push(`Suggested fix: re-run with --clip-white ${suggestedClip.toFixed(2)} (raise it if the frame is still dark; lower it if highlights blow out).`);
           dustLines[dustLines.length - 1] += '\x1b[0m';
           console.log('\n' + dustLines.join('\n'));
         }
