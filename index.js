@@ -486,6 +486,19 @@ if (opts.excludeFilesFromProfile && opts.perImageBalancing) {
   exitWithError('--exclude-files-from-profile cannot be combined with --per-image-balancing (per-image mode computes a separate profile per frame, so there is no shared profile to exclude from).');
 }
 
+// Fast guard: a numeric tuning option that parsed to a non-number (e.g.
+// `--clip banana` via parseFloat) fails here, before any output directory is
+// created or the roll is decoded. atlas is the authority on valid ranges (it
+// rejects out-of-range values too); this only catches "not a number" early for
+// a friendlier error. Covers both CLI and merged config values.
+[['clip', '--clip'], ['clipBlack', '--clip-black'], ['clipWhite', '--clip-white'],
+ ['outputGamma', '--output-gamma'], ['borderExclude', '--border-exclude'],
+ ['pixelRejectionPercentage', '--pixel-rejection-percentage']].forEach(function(entry) {
+  if (opts[entry[0]] !== undefined && !Number.isFinite(opts[entry[0]])) {
+    exitWithError(`${entry[1]} must be a finite number.`);
+  }
+});
+
 var loadedProfile = null;
 if (opts.profile) {
   loadedProfile = loadProfile(opts.profile, pprcProfilesDir);
