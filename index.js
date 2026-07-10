@@ -459,6 +459,26 @@ function parseExcludeFromProfile(str) {
 if (opts.saveProfile) validateProfileName(opts.saveProfile, '--save-profile');
 if (opts.profile)     validateProfileName(opts.profile,     '--profile');
 
+// Profile flags describe the shared negative-inversion profile. Reject the
+// contradictory combinations up front, rather than analysing the whole roll and
+// failing (or silently ignoring the flag). --save-profile has nothing to save
+// under per-image balancing (no shared profile) or alongside --profile (which
+// loads one instead); both flags do nothing without negative mode.
+if (opts.saveProfile && opts.perImageBalancing) {
+  exitWithError('--save-profile cannot be combined with --per-image-balancing (per-image mode computes a separate profile per frame, so there is no shared profile to save).');
+}
+if (opts.saveProfile && opts.profile) {
+  exitWithError('--save-profile cannot be combined with --profile (--save-profile analyzes and writes a new shared profile; --profile loads an existing one).');
+}
+if (!hasNegative) {
+  if (opts.saveProfile) {
+    exitWithError(`--save-profile requires negative mode; it saves the negative-inversion profile, but the selected mode(s) are: ${modes.join(', ')}.`);
+  }
+  if (opts.profile) {
+    exitWithError(`--profile requires negative mode; the saved profile is only used by the negative inversion, but the selected mode(s) are: ${modes.join(', ')}.`);
+  }
+}
+
 // --exclude-files-from-profile only makes sense for a shared profile. In
 // per-image mode each frame gets its own profile, so there is nothing to
 // exclude from.
