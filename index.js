@@ -641,6 +641,23 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     }
   }
 
+  // Two input files whose names differ only in case (e.g. FRAME.raw and
+  // FRAME.RAW, which coexist on case-sensitive filesystems) strip to the same
+  // stem and would write to the same output name, clobbering each other. Detect
+  // that before writing.
+  var stemGroups = {};
+  Object.keys(usableRawFiles).forEach(function(name) {
+    var stem = path.parse(name).name.toLowerCase();
+    (stemGroups[stem] = stemGroups[stem] || []).push(name);
+  });
+  var stemCollisions = Object.keys(stemGroups).filter(function(s) { return stemGroups[s].length > 1; });
+  if (stemCollisions.length > 0) {
+    var collisionLines = stemCollisions.map(function(s) {
+      return `  ${stemGroups[s].join(', ')} → ${path.parse(stemGroups[s][0]).name}.tif`;
+    });
+    exitWithError(`Multiple input files map to the same output name:\n${collisionLines.join('\n')}\nRename them so each produces a distinct output.`);
+  }
+
   // Inputs are validated — only now create the output dir (or error if an
   // explicit absolute path already exists), so failed runs don't leave empty
   // auto-incremented directories behind.
