@@ -59,10 +59,17 @@ var bannerLines = [
   '   Run this tool within a folder of .raw files',
   '   Run pprc --help for options'
 ];
-var bannerWidth = Math.max(...bannerLines.map(l => l.length)) + 2;
-console.log(`\x1b[36m╔${'═'.repeat(bannerWidth)}╗`);
-bannerLines.forEach(l => console.log(`║${l.padEnd(bannerWidth)}║`));
-console.log(`╚${'═'.repeat(bannerWidth)}╝\x1b[0m`);
+// Skip the banner for --version/--help so their output stays clean and
+// script-parseable (commander handles those flags and exits).
+var wantsMetaFlag = process.argv.slice(2).some(function(a) {
+  return a === '--version' || a === '-V' || a === '--help' || a === '-h';
+});
+if (!wantsMetaFlag) {
+  var bannerWidth = Math.max(...bannerLines.map(l => l.length)) + 2;
+  console.log(`\x1b[36m╔${'═'.repeat(bannerWidth)}╗`);
+  bannerLines.forEach(l => console.log(`║${l.padEnd(bannerWidth)}║`));
+  console.log(`╚${'═'.repeat(bannerWidth)}╝\x1b[0m`);
+}
 
 var OUTPUT_DIR = "out";
 
