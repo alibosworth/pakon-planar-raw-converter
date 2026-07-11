@@ -109,3 +109,38 @@ test('a profile-only run does not leave an empty output directory', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// A saved shared profile must persist channelMaxes and reproduce the render it
+// was computed from when reloaded via --profile.
+test('a saved profile keeps channelMaxes and reproduces the render', () => {
+  const dir = tmpDir();
+  const home = path.join(dir, 'home');
+  fs.mkdirSync(home);
+  try {
+    const inDir = path.join(dir, 'in');
+    fs.mkdirSync(inDir);
+    makeRaw(path.join(inDir, 'A.raw'), { frame: 0 });
+    makeRaw(path.join(inDir, 'B.raw'), { frame: 1 });
+    const env = { HOME: home, USERPROFILE: home };
+
+    // Baseline render computes the shared profile from the roll.
+    const baseline = runCli(['--dir', inDir, '--dir-out', path.join(dir, 'out-base')], { env });
+    assert.equal(baseline.status, 0, baseline.stderr);
+
+    // Save that same profile, then reload it.
+    const save = runCli(['--dir', inDir, '--save-profile', 'roll'], { env });
+    assert.equal(save.status, 0, save.stderr);
+    const prof = JSON.parse(fs.readFileSync(path.join(home, '.pprc', 'profiles', 'roll.json'), 'utf8'));
+    assert.ok(Array.isArray(prof.channelMaxes) && prof.channelMaxes.length === 3, 'channelMaxes persisted');
+    assert.ok(prof.channelMaxes.some((v) => v > 0), 'channelMaxes are non-zero');
+
+    const reused = runCli(['--dir', inDir, '--profile', 'roll', '--dir-out', path.join(dir, 'out-prof')], { env });
+    assert.equal(reused.status, 0, reused.stderr);
+
+    const base = fs.readFileSync(path.join(dir, 'out-base', 'A.tif'));
+    const prof2 = fs.readFileSync(path.join(dir, 'out-prof', 'A.tif'));
+    assert.ok(base.equals(prof2), 'reloaded profile reproduces the baseline render');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
