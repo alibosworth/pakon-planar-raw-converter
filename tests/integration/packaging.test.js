@@ -11,8 +11,9 @@ const pkg = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta
 // runnable code and both bin entry points while leaving private working notes,
 // tests, and other local scaffolding out.
 test('npm pack ships the code and excludes private/test scaffolding', () => {
-  const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const out = execFileSync(npm, ['pack', '--dry-run', '--json'], { cwd: repoRoot, encoding: 'utf8' });
+  // Run through a shell: on Windows npm is npm.cmd, and Node refuses to spawn
+  // .cmd/.bat directly (EINVAL) unless shell:true.
+  const out = execFileSync('npm', ['pack', '--dry-run', '--json'], { cwd: repoRoot, encoding: 'utf8', shell: true });
   const files = JSON.parse(out)[0].files.map((f) => f.path);
 
   // The runnable pieces are present.
