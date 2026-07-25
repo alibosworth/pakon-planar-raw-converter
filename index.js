@@ -11,27 +11,6 @@ var __dirname = path.dirname(__filename);
 import pkg from './package.json' with { type: 'json' };
 import atlasPkg from '@alibosworth/atlas-node/package.json' with { type: 'json' };
 
-// Handle --postinstall before loading heavy dependencies
-if (process.argv.includes('--postinstall')) {
-  var cyan = '\x1b[36m';
-  var reset = '\x1b[0m';
-  var lines = [
-    '   pprc  v' + pkg.version,
-    '   Pakon Raw → 16-bit TIFF',
-  ];
-  var width = Math.max.apply(null, lines.map(function(l) { return l.length; })) + 2;
-  console.log(cyan + '╔' + '═'.repeat(width) + '╗');
-  lines.forEach(function(l) { console.log('║' + l + ' '.repeat(width - l.length) + '║'); });
-  console.log('╚' + '═'.repeat(width) + '╝' + reset);
-  console.log('\n  Installed globally. Run ' + cyan + 'pprc' + reset + ' within a folder of Pakon .raw files.');
-  console.log('  ' + cyan + 'pprc --help' + reset + ' for command reference or ' + cyan + 'pprc --examples' + reset + ' for examples.');
-  if (process.platform === 'darwin') {
-    console.log('  On macOS, run ' + cyan + 'pprc --install-quick-action' + reset + ' to add a right-click option in Finder.');
-  }
-  console.log('');
-  process.exit(0);
-}
-
 var processStart = Date.now();
 var DEBUG = process.env.DEBUG === 'pprc';
 
