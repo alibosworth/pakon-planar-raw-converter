@@ -77,10 +77,8 @@ You'll need Node.js v22+ installed, then install PPRC globally:
 
 3) Install PPRC globally:
    ```
-   npm install -g pakon-planar-raw-converter --foreground-scripts
+   npm install -g pakon-planar-raw-converter
    ```
-
-   *note: `--foreground-scripts` is needed for PPRC to show a welcome message after install, but is not strictly necessary*
 
 #### macOS Finder Quick Action
 
@@ -94,7 +92,7 @@ Please do not try to run PPRC on Windows XP. Everything will be easier and faste
 
 ## Updating
 
-PPRC will attempt to detect and show you a message when there is an update available, but you can update to the latest version at any time with `npm update -g pakon-planar-raw-converter --foreground-scripts`.
+PPRC will attempt to detect and show you a message when there is an update available, but you can update to the latest version at any time with `npm update -g pakon-planar-raw-converter`.
 
 ------------------
 
