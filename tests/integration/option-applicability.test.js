@@ -90,3 +90,16 @@ test('--profile without a negative mode errors without also warning', () => {
   assert.match(output, /--profile requires negative mode/, 'should hard-error');
   assert.doesNotMatch(output, /--profile[\s\S]*is ignored/, 'and not also warn about it');
 });
+
+// `profile` is a valid config key, so a saved default applied to every run. A
+// non-negative run then hard-errored on a setting the user never typed, making
+// `pprc --mode bw` impossible for anyone with a profile in their config. An
+// inherited default that can't be honoured should be reported and skipped, not
+// fatal. The profile named here does not exist, proving it is never loaded.
+test('a config-sourced profile is skipped with a warning, not a hard error', () => {
+  const { status, output } = warnings(['--mode', 'raw'], { profile: 'no-such-profile' });
+  assert.equal(status, 0, `the run should succeed. output:\n${output}`);
+  assert.match(output, /profile[\s\S]*ignored/i, 'should say the profile was ignored');
+  assert.doesNotMatch(output, /requires negative mode/, 'should not hard-error');
+  assert.doesNotMatch(output, /not found/i, 'and should not try to load it');
+});
