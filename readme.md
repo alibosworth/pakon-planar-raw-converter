@@ -294,8 +294,9 @@ pprc --dir /path/to/next-roll --profile my-favorite
 
 ## Licence
 
-PPRC is released under the [PolyForm Noncommercial License 1.0.0](LICENSE). You can
-read, run, modify, and share the source for any noncommercial purpose.
+PPRC is released under the [PolyForm Noncommercial License 1.0.0](LICENSE), which
+covers the code in this repository. You can read, run, modify, and share it for any
+noncommercial purpose.
 
 That makes PPRC source available. It is not open source in the OSI sense, because
 commercial use is not permitted. If you want to use PPRC commercially, including as
@@ -305,13 +306,21 @@ licence.
 Releases up to 0.0.13 were published under GPL-3.0 and remain available under those
 terms.
 
-### The inversion engine
+### The inversion engine is not covered by this licence
 
 The negative inversion and orange mask removal happen in a separate component called
 ATLAS, which installs as a prebuilt binary from the `@alibosworth/atlas-node` package.
-Its source is not in this repository and it is licensed separately. Everything else is
-here: the CLI, raw file detection and deplanarising, the TIFF writer, the worker
-pipeline, config and profile handling.
+
+**ATLAS is proprietary and falls outside PPRC's licence.** Its source is not published,
+and the rights granted above do not extend to it. Installing PPRC gets you a binary you
+can run as part of PPRC; it does not grant you any right to use, copy, modify, or
+redistribute ATLAS on its own or in anything else. Its terms ship with that package.
+
+Everything else is in this repository and covered by the licence above: the CLI, raw
+file detection and deplanarising, the TIFF writer, the worker pipeline, contrast stretch
+handling for the non-negative modes, config and profile handling. If you would rather
+not depend on a closed component, `--mode raw` produces linear 16-bit TIFFs without
+touching ATLAS, ready for Negative Lab Pro, ColorPerfect, or any other inversion tool.
 
 ## Contributing
 
