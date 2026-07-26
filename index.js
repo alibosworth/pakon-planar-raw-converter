@@ -483,11 +483,23 @@ if (opts.saveProfile && opts.profile) {
   exitWithError('--save-profile cannot be combined with --profile (--save-profile analyzes and writes a new shared profile; --profile loads an existing one).');
 }
 if (!hasNegative) {
+  // --save-profile is CLI-only (it is not a config key), so reaching here always
+  // means the user asked for it explicitly on this run.
   if (opts.saveProfile) {
     exitWithError(`--save-profile requires negative mode; it saves the negative-inversion profile, but the selected mode(s) are: ${modes.join(', ')}.`);
   }
+  // `profile` IS a config key, so it can arrive from ~/.pprc/configs rather than
+  // from this invocation. Erring on an inherited default made `pprc --mode bw`
+  // impossible for anyone with a profile saved in their config, so only an
+  // explicit CLI --profile is fatal; a config-sourced one is reported and
+  // skipped. Clearing it here also stops a stale config entry from failing the
+  // run later with "profile not found".
   if (opts.profile) {
-    exitWithError(`--profile requires negative mode; the saved profile is only used by the negative inversion, but the selected mode(s) are: ${modes.join(', ')}.`);
+    if (program.getOptionValueSource('profile') === 'cli') {
+      exitWithError(`--profile requires negative mode; the saved profile is only used by the negative inversion, but the selected mode(s) are: ${modes.join(', ')}.`);
+    }
+    console.warn(`\x1b[33mWarning: profile '${opts.profile}' from your config is ignored for the selected mode(s); it applies only to negative-inversion output.\x1b[0m`);
+    opts.profile = null;
   }
 }
 
