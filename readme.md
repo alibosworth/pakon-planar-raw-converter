@@ -22,7 +22,7 @@ The result is images that preserve all the data your scanner captured: the best 
 
 For best color consistency, process a whole roll together when possible rather than splitting it into smaller batches. PPRC's default inversion analyzes the batch as a group, which helps keep color balance consistent across frames and makes outlier-frame rejection more reliable.
 
-[Here are some comparisons](https://alibosworth.github.io/pakon-planar-raw-converter/comparison/) of standard PSI output vs PPRC output. And [here are examples](https://alibosworth.github.io/pakon-planar-raw-converter/8bit_raw_highlight_issue/) of the quality issues caused by PSI's 8-bit limitation.
+[Here are some comparisons](https://pprc.alibosworth.com/comparison) of standard PSI output vs PPRC output. And [here are examples](https://pprc.alibosworth.com/8bit_raw_highlight_issue) of the quality issues caused by PSI's 8-bit limitation.
 
 
 ## What PPRC is not
@@ -57,7 +57,7 @@ PSI's built-in algorithms do produce decent images and some people prefer just u
 
 ### PSI already exports raw files for me, why use TLXClientDemo?
 
-PSI can only export 8-bit files, even when exporting "raw" TIFFs. This limitation shows up most often as [artifacting and quantization in highlights](https://alibosworth.github.io/pakon-planar-raw-converter/8bit_raw_highlight_issue/). TLXClientDemo's planar raw output preserves the full 16-bit data.
+PSI can only export 8-bit files, even when exporting "raw" TIFFs. This limitation shows up most often as [artifacting and quantization in highlights](https://pprc.alibosworth.com/8bit_raw_highlight_issue). TLXClientDemo's planar raw output preserves the full 16-bit data.
 
 ### Can't I just open the planar raw files in Photoshop?
 
