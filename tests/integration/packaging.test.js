@@ -26,8 +26,17 @@ test('npm pack ships the code and excludes private/test scaffolding', () => {
     assert.ok(files.includes(target), `bin target ${target} must be packaged`);
   }
 
+  // Reader-facing policy files ship: someone inspecting the package should be able
+  // to find the licence terms and how to report things.
+  assert.ok(files.includes('LICENSE'), 'LICENSE must ship');
+  assert.ok(files.includes('CONTRIBUTING.md'), 'CONTRIBUTING.md must ship');
+  assert.ok(files.includes('SECURITY.md'), 'SECURITY.md must ship');
+
   // Local-only scaffolding stays out.
   assert.ok(!files.some((f) => f.startsWith('private/')), 'private/ must not ship');
   assert.ok(!files.some((f) => f.startsWith('tests/')), 'tests/ must not ship');
   assert.ok(!files.some((f) => f === 'AGENTS.md' || f.endsWith('/AGENTS.md')), 'AGENTS.md must not ship');
+  // CI config and issue/PR templates are repository furniture, not part of the
+  // installable package.
+  assert.ok(!files.some((f) => f.startsWith('.github/')), '.github/ must not ship');
 });

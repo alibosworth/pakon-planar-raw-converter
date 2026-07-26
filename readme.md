@@ -292,6 +292,35 @@ pprc --dir /path/to/next-roll --profile my-favorite
 
 ----------
 
+## Licence
+
+PPRC is released under the [PolyForm Noncommercial License 1.0.0](LICENSE). You can
+read, run, modify, and share the source for any noncommercial purpose.
+
+That makes PPRC source available. It is not open source in the OSI sense, because
+commercial use is not permitted. If you want to use PPRC commercially, including as
+part of a paid scanning or lab service, email ali@alibosworth.com about a separate
+licence.
+
+Releases up to 0.0.13 were published under GPL-3.0 and remain available under those
+terms.
+
+### The inversion engine
+
+The negative inversion and orange mask removal happen in a separate component called
+ATLAS, which installs as a prebuilt binary from the `@alibosworth/atlas-node` package.
+Its source is not in this repository and it is licensed separately. Everything else is
+here: the CLI, raw file detection and deplanarising, the TIFF writer, the worker
+pipeline, config and profile handling.
+
+## Contributing
+
+Issues and suggestions are welcome. Please open an issue before sending code, for
+licensing reasons explained in [CONTRIBUTING.md](CONTRIBUTING.md). For anything
+security related, see [SECURITY.md](SECURITY.md).
+
+----------
+
 ## Questions?
 
 ali@alibosworth.com
