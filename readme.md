@@ -201,11 +201,11 @@ For best results, run PPRC on a full roll together when possible instead of proc
 
 #### Color space
 
-Advanced color management. PPRC sets the RGB primaries (gamut) at three stages of the pipeline. The defaults are sRGB for input and working, and Adobe RGB for output. Valid values for each: `srgb`, `adobergb`, `rec2020`, `prophoto`, `acescg`. These apply to `negative` mode only; `e6`, `bw`, and `raw` modes do no colour conversion and ignore them (PPRC warns if you set one anyway). Most users never need to change them.
+Advanced color management. PPRC sets the RGB primaries (gamut) at three stages of the pipeline. The defaults are Adobe RGB for input and output, with a wide ACEScg working space in between: the inversion works per channel, and a wide working gamut keeps the channels further apart, which reduces hue shifts. Valid values for each: `srgb`, `adobergb`, `rec2020`, `prophoto`, `acescg`. These apply to `negative` mode only; `e6`, `bw`, and `raw` modes do no colour conversion and ignore them (PPRC warns if you set one anyway). Most users never need to change them.
 
-* `--colorspace-input <space>` RGB primaries PPRC assumes the incoming scan data is in (default: `srgb`).
+* `--colorspace-input <space>` RGB primaries PPRC assumes the incoming scan data is in (default: `adobergb`).
 
-* `--colorspace-working <space>` RGB primaries used internally while inverting and balancing (default: `srgb`).
+* `--colorspace-working <space>` RGB primaries used internally while inverting and balancing (default: `acescg`).
 
 * `--colorspace-output <space>` RGB primaries the output TIFFs are written in (default: `adobergb`).
 
