@@ -107,6 +107,54 @@ test('two non-negative modes compose', () => {
   }
 });
 
+// One run log lands at the base output directory. When several modes ran it must
+// say where each mode's files went — otherwise the log names the modes but points
+// only at the base directory, and a reader can't tell the subdirectories exist.
+test('a multi-mode run log maps each mode to its output directory', () => {
+  const { res, outDir, cleanup } = run(['--mode', 'negative,raw']);
+  try {
+    assert.equal(res.status, 0, `should succeed. stderr:\n${res.stderr}`);
+    const log = fs.readFileSync(path.join(outDir, 'pprc_log.txt'), 'utf8');
+
+    assert.match(log, /^ {2}mode: negative, raw$/m, 'settings should still name the modes');
+    assert.match(log, /^outputs:$/m, 'log should have an outputs block');
+    assert.match(log, /^ {2}negative → negative\/ \(2 files\)$/m, 'should map negative to its subdir');
+    assert.match(log, /^ {2}raw → raw\/ \(2 files\)$/m, 'should map raw to its subdir');
+  } finally {
+    cleanup();
+  }
+});
+
+// The detailed per-frame list comes from the negative pass only (atlas supplies
+// the frame/profile data). With several modes running, an unqualified "files:"
+// heading reads as the whole output, so it has to be scoped.
+test('a multi-mode run log labels the per-frame list as the negative pass', () => {
+  const { res, outDir, cleanup } = run(['--mode', 'negative,raw']);
+  try {
+    assert.equal(res.status, 0, `should succeed. stderr:\n${res.stderr}`);
+    const log = fs.readFileSync(path.join(outDir, 'pprc_log.txt'), 'utf8');
+
+    assert.match(log, /^files \(negative pass\):$/m, 'file list should be scoped to the negative pass');
+  } finally {
+    cleanup();
+  }
+});
+
+// Single-mode logs are unchanged: one mode, one flat output directory, so a
+// per-mode mapping would be noise. Guards against the multi-mode block leaking.
+test('a single-mode run log has no outputs block', () => {
+  const { res, outDir, cleanup } = run(['--mode', 'raw']);
+  try {
+    assert.equal(res.status, 0, `should succeed. stderr:\n${res.stderr}`);
+    const log = fs.readFileSync(path.join(outDir, 'pprc_log.txt'), 'utf8');
+
+    assert.doesNotMatch(log, /^outputs:$/m, 'single mode needs no per-mode mapping');
+    assert.match(log, /^files:$/m, 'and its file list stays unqualified');
+  } finally {
+    cleanup();
+  }
+});
+
 // Timestamp restamping runs per output directory, so each mode's subdirectory
 // gets its own increasing-in-frame-order timeline rather than only the first.
 test('each mode subdirectory is restamped in frame order', () => {
