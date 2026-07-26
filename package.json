@@ -28,6 +28,17 @@
     "publish-alpha": "npm publish --tag alpha",
     "publish-beta": "npm publish --tag beta"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alibosworth/pakon-planar-raw-converter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alibosworth/pakon-planar-raw-converter/issues"
+  },
+  "homepage": "https://pprc.alibosworth.com",
+  "engines": {
+    "node": ">=22"
+  },
   "type": "module",
   "main": "index.js",
   "author": "Ali Bosworth <ali@alibosworth.com> (https://alibosworth.com/)",
@@ -36,9 +47,8 @@
     "pakon-planar-raw-converter": "index.js",
     "pprc": "index.js"
   },
-  "preferGlobal": true,
   "dependencies": {
-    "@alibosworth/atlas-node": "^2026.7.12-alpha.1",
+    "@alibosworth/atlas-node": "2026.7.26",
     "bluebird": "^3.5.1",
     "commander": "^12.1.0",
     "update-notifier": "^7.3.1"
