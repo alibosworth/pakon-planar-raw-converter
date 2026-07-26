@@ -1,7 +1,7 @@
 {
   "name": "pakon-planar-raw-converter",
-  "version": "0.0.13",
-  "description": "A script to convert Pakon F-135+ Planar RAW scans from TLXClientDemo into usable files via ImageMagick's Convert and NegFix8",
+  "version": "1.0.0",
+  "description": "A script to convert Pakon F-135+ Planar RAW scans from TLXClientDemo into usable files",
   "keywords": [
     "kodak",
     "pakon",
@@ -16,28 +16,39 @@
     "raw",
     "planar",
     "linear",
-    "imagemagick",
     "negfix8",
     "photography",
     "35mm",
     "images"
   ],
   "scripts": {
-    "run-docs-site": "cp README.md docs/_readme.md && cd docs && bundle exec jekyll serve"
+    "test": "node --test \"tests/**/*.test.js\"",
+    "prepublishOnly": "npm test",
+    "publish-alpha": "npm publish --tag alpha",
+    "publish-beta": "npm publish --tag beta"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alibosworth/pakon-planar-raw-converter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alibosworth/pakon-planar-raw-converter/issues"
+  },
+  "homepage": "https://pprc.alibosworth.com",
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "module",
   "main": "index.js",
-  "author": "Ali Bosworth <ali@alibosworth.com> (http://alibosworth.com/)",
-  "license": "GPL-3.0",
+  "author": "Ali Bosworth <ali@alibosworth.com> (https://alibosworth.com/)",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "bin": {
-    "pakon-planar-raw-converter": "./index.js",
-    "pprc": "./index.js"
+    "pakon-planar-raw-converter": "index.js",
+    "pprc": "index.js"
   },
-  "preferGlobal": true,
   "dependencies": {
-    "bluebird": "^3.5.1",
-    "child-process-promise": "^2.2.1",
-    "command-exists": "^1.2.2",
-    "commander": "^2.12.2",
-    "glob": "^7.1.2"
+    "@alibosworth/atlas-node": "2026.7.26",
+    "commander": "^12.1.0",
+    "update-notifier": "^7.3.1"
   }
 }

@@ -1,2 +1,12 @@
 tests/
 docs/
+.github/
+.claude/
+TODO.md
+.private
+*.bun-build
+pprc-bin
+web/
+site/
+private
+private/

@@ -1,7 +1,0 @@
-title: Pakon Planar Raw Converter
-description: Convert 16-bit Planar Raw files from the Pakon F-135+ into usable TIFF images
-baseurl: ""
-url: https://pprc.alibosworth.com
-exclude:
-  - Gemfile
-  - Gemfile.lock
