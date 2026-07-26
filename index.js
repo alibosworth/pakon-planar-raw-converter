@@ -403,40 +403,52 @@ var hasNegative = modes.indexOf('negative') !== -1;
 // multi-mode that involves raw — needs the buffer to feed its transform.
 var rawWriteThrough = modes.length === 1 && modes[0] === 'raw';
 
-if (modes.length === 1 && modes[0] === 'raw') {
-  var ignoredInRaw = [];
-  if (opts.outputGamma !== undefined)               ignoredInRaw.push('--output-gamma');
-  if (opts.clip !== undefined)                      ignoredInRaw.push('--clip');
-  if (opts.clipBlack !== undefined)                 ignoredInRaw.push('--clip-black');
-  if (opts.clipWhite !== undefined)                 ignoredInRaw.push('--clip-white');
-  if (opts.borderExclude !== undefined)             ignoredInRaw.push('--border-exclude');
-  if (opts.pixelRejectionPercentage !== undefined)  ignoredInRaw.push('--pixel-rejection-percentage');
-  if (opts.perImageBalancing)                       ignoredInRaw.push('--per-image-balancing');
-  if (opts.frameRejection === false)                ignoredInRaw.push('--no-frame-rejection');
-  if (opts.stretch === false)                       ignoredInRaw.push('--no-stretch');
-  if (opts.colorspaceInput !== undefined)           ignoredInRaw.push('--colorspace-input');
-  if (opts.colorspaceWorking !== undefined)         ignoredInRaw.push('--colorspace-working');
-  if (opts.colorspaceOutput !== undefined)          ignoredInRaw.push('--colorspace-output');
-  if (opts.profile)                                 ignoredInRaw.push('--profile');
-  if (opts.saveProfile)                             ignoredInRaw.push('--save-profile');
-  if (ignoredInRaw.length > 0) {
-    var verb = ignoredInRaw.length === 1 ? 'is' : 'are';
-    console.warn(`\x1b[33mWarning: ${ignoredInRaw.join(', ')} ${verb} ignored with --mode raw (raw mode writes linear sensor data unmodified).\x1b[0m`);
-  }
+// Tuning options fall into two tiers by which modes consume them, so which ones
+// are inapplicable depends on the mode set rather than on any single mode.
+//
+//   negative-only  — read only by the ATLAS pass (processBuffers). Inapplicable
+//                    whenever no negative mode is selected.
+//   stretch family — read by negative, e6, bw and bw-rgb (via contrastStretch).
+//                    Inapplicable only when raw is the sole mode.
+//
+// The previous raw-only check was gated on `modes.length === 1`, so adding any
+// second mode silently disabled it: `--mode raw,e6 --per-image-balancing` dropped
+// the flag with no warning at all.
+//
+// --profile and --save-profile are deliberately absent here; they are handled
+// below, where a missing negative mode is an error rather than a warning.
+// `where` completes "... ignored <where>"; `appliesTo` completes "applies only to
+// <appliesTo>". Both singular and plural forms read correctly.
+function warnInapplicable(flags, where, appliesTo) {
+  var inapplicable = flags.filter(function(entry) { return entry[1]; }).map(function(entry) { return entry[0]; });
+  if (inapplicable.length === 0) return;
+  var single = inapplicable.length === 1;
+  console.warn(
+    `\x1b[33mWarning: ${inapplicable.join(', ')} ${single ? 'is' : 'are'} ignored ${where}; ` +
+    `${single ? 'it applies' : 'they apply'} only to ${appliesTo}.\x1b[0m`
+  );
 }
 
-// Colour-space flags only affect the negative-inversion output; E6, BW, and raw
-// modes do no input/working/output conversion. The raw-only warning above covers
-// raw; warn here for a non-raw-only run that has no negative mode.
-if (!hasNegative && !rawWriteThrough) {
-  var ignoredColorspace = [];
-  if (opts.colorspaceInput !== undefined)   ignoredColorspace.push('--colorspace-input');
-  if (opts.colorspaceWorking !== undefined) ignoredColorspace.push('--colorspace-working');
-  if (opts.colorspaceOutput !== undefined)  ignoredColorspace.push('--colorspace-output');
-  if (ignoredColorspace.length > 0) {
-    var csVerb = ignoredColorspace.length === 1 ? 'is' : 'are';
-    console.warn(`\x1b[33mWarning: ${ignoredColorspace.join(', ')} ${csVerb} ignored for the selected mode(s); colour space only affects negative-inversion output.\x1b[0m`);
-  }
+if (!hasNegative) {
+  warnInapplicable([
+    ['--per-image-balancing',        opts.perImageBalancing],
+    ['--no-frame-rejection',         opts.frameRejection === false],
+    ['--pixel-rejection-percentage', opts.pixelRejectionPercentage !== undefined],
+    ['--colorspace-input',           opts.colorspaceInput !== undefined],
+    ['--colorspace-working',         opts.colorspaceWorking !== undefined],
+    ['--colorspace-output',          opts.colorspaceOutput !== undefined],
+  ], 'for the selected mode(s)', 'negative-inversion output');
+}
+
+if (rawWriteThrough) {
+  warnInapplicable([
+    ['--output-gamma',   opts.outputGamma !== undefined],
+    ['--clip',           opts.clip !== undefined],
+    ['--clip-black',     opts.clipBlack !== undefined],
+    ['--clip-white',     opts.clipWhite !== undefined],
+    ['--border-exclude', opts.borderExclude !== undefined],
+    ['--no-stretch',     opts.stretch === false],
+  ], 'with --mode raw, which writes linear sensor data unmodified', 'the contrast stretch');
 }
 
 function validateProfileName(name, flag) {
