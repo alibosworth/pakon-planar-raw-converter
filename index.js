@@ -694,6 +694,9 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     var negResult = null;
     var negImages = null;
     var outputDirs = [];
+    // Where each mode's files landed, for the run log. Collected here because
+    // only the orchestrator knows the per-mode directory and file count.
+    var modeOutputs = [];
 
     var chain = Promise.resolve();
     orderedModes.forEach(function(mode) {
@@ -705,10 +708,12 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
             loggingAtlasOpts = r.atlasOpts;
             negResult = r.result;
             negImages = r.images;
+            modeOutputs.push({ mode: mode, dir: outDir, fileCount: r.fileCount });
             savedLines.push(`${r.fileCount} ${r.fileCount === 1 ? "file" : "files"} saved to '${outDir}' as processed TIFF.`);
           });
         }
         writeStretchMode(buffers, mode, outDir);
+        modeOutputs.push({ mode: mode, dir: outDir, fileCount: buffers.length });
         savedLines.push(`${buffers.length} ${buffers.length === 1 ? "file" : "files"} saved to '${outDir}' as ${verbForMode(mode)} TIFF.`);
         return Promise.resolve();
       });
@@ -721,7 +726,7 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
       var stampRef = Date.now();
       outputDirs.forEach(function(d) { applySequentialTimestamps(d, stampRef); });
       saveLastRunConfig(loggingAtlasOpts);
-      writeRunLog(negImages || buffers, negResult, loggingAtlasOpts, Date.now() - startTime);
+      writeRunLog(negImages || buffers, negResult, loggingAtlasOpts, Date.now() - startTime, modeOutputs);
     });
   }).catch(function(err) {
     // Single failure funnel for the whole pipeline (worker errors other than
@@ -1017,7 +1022,9 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
     return atlasOpts;
   }
 
-  function writeRunLog(images, result, atlasOpts, elapsedMs) {
+  // `modeOutputs` ([{mode, dir, fileCount}]) is only passed for the multi-mode
+  // orchestrator path; the raw write-through path omits it (always one mode).
+  function writeRunLog(images, result, atlasOpts, elapsedMs, modeOutputs) {
     try {
       var p = result && result.sharedProfile;
       var rej = result && result.frameRejection;
@@ -1046,6 +1053,21 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
         ] : []),
         `  input: ${inputDir}`,
         `  output: ${outputDir}`,
+        // With one mode the output directory above says it all. With several,
+        // each mode has its own subdirectory and the base path alone would
+        // understate what was written — so map mode → directory and file count,
+        // listed in the order the user requested them.
+        ...(modeOutputs && modeOutputs.length > 1 ? [
+          ``,
+          `outputs:`,
+          ...modes.map(function(m) {
+            var entry = null;
+            modeOutputs.forEach(function(o) { if (o.mode === m) entry = o; });
+            if (!entry) return null;
+            var relativeDir = path.relative(outputDir, entry.dir) || '.';
+            return `  ${m} → ${relativeDir}/ (${entry.fileCount} ${entry.fileCount === 1 ? 'file' : 'files'})`;
+          }).filter(Boolean),
+        ] : []),
         ``,
         ...(!noInvert ? [`inversion engine: ATLAS v${atlasPkg.version}`, ``] : []),
       ];
@@ -1153,7 +1175,11 @@ if (opts.dir && !fs.statSync(inputDir).isDirectory()) {
         lines.push(``);
       }
 
-      lines.push(`files:`);
+      // The detailed frame/profile list below comes from the ATLAS negative pass
+      // only. When several modes ran, an unqualified heading reads as the whole
+      // output — scope it, and let the outputs block above account for the rest.
+      var listIsNegativeOnly = modeOutputs && modeOutputs.length > 1 && result && result.frames;
+      lines.push(listIsNegativeOnly ? `files (negative pass):` : `files:`);
       if (result && result.frames) {
         var sortedFrames = result.frames.slice().sort(function(a, b) {
           return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
